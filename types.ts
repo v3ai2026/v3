@@ -61,7 +61,7 @@ export enum TabType {
   AGENT_MANAGER = 'AGENT_MANAGER',
   LOGS = 'LOGS',
   DEPLOY = 'DEPLOY',
-  COLAB = 'COLAB',
   PLUGINS = 'PLUGINS',
-  GCS = 'GCS'
+  GCS = 'GCS',
+  FIGMA = 'FIGMA'
 }

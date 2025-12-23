@@ -3,42 +3,56 @@ import { LibraryItem } from "../types";
 
 export const TEMPLATE_LIBRARY: LibraryItem[] = [
   {
-    id: 'tpl-vercel-dashboard',
-    name: 'Vercel 风格控制台',
-    description: '一个极致纯净、高性能的后台管理界面，灵感来自 Vercel 官方矩阵。',
+    id: 'tpl-saas-ixartz',
+    name: 'Next.js SaaS Boilerplate',
+    description: 'Inspired by ixartz/SaaS-Boilerplate. Features Tailwind CSS, TypeScript, and ESLint with strict production rules.',
     type: 'template',
-    previewColor: 'from-slate-900 to-black',
+    previewColor: 'from-blue-600 to-indigo-900',
   },
   {
-    id: 'tpl-bento',
-    name: 'Bento 栅格展示',
-    description: '现代多列网格布局，适合展示产品特性或统计数据，带有磨砂玻璃卡片效果。',
+    id: 'tpl-saas-async',
+    name: 'Async Labs SaaS',
+    description: 'React + Express architecture. Includes WebSocket support and production-ready MongoDB integrations.',
     type: 'template',
-    previewColor: 'from-blue-500 to-indigo-600',
+    previewColor: 'from-emerald-600 to-teal-900',
+  },
+  {
+    id: 'tpl-saas-python',
+    name: 'Pythonic SaaS Shard',
+    description: 'Flask + PostgreSQL + React. Ideal for teams requiring a Python backend protocol.',
+    type: 'template',
+    previewColor: 'from-gold-600 to-yellow-900',
+  },
+  {
+    id: 'tpl-bento-luxury',
+    name: 'Bento Grid Dashboard',
+    description: 'Ultra-modern grid layout with glassmorphism and gold accents for high-end SaaS interfaces.',
+    type: 'template',
+    previewColor: 'from-gray-900 to-black',
   }
 ];
 
 export const COMPONENT_LIBRARY: LibraryItem[] = [
   {
     id: 'cmp-neural-modal',
-    name: '神经态无障碍模态框',
-    description: '符合 WAI-ARIA 规范的 React 模态框，内置键盘捕获与焦点管理，集成 TDD 基因。',
+    name: 'Neural Modal Shard',
+    description: 'WCAG 2.1 compliant dialogue with focus trapping and cinematic transitions.',
     type: 'component',
     previewColor: 'from-indigo-600 to-purple-700',
-    codeSnippet: `props: { title: string, content: ReactNode, isOpen: boolean, onClose: () => void }`
+    codeSnippet: `props: { title: string, isOpen: boolean, onClose: () => void }`
   },
   {
-    id: 'api-github-integration',
-    name: 'GitHub 自动化专家',
-    description: '后端集成模块，支持通过 REST API 创建仓库、初始化内容及自动化推送流程。',
+    id: 'api-browser-orchestrator',
+    name: 'Browser Logic Agent',
+    description: 'Playwright/Selenium-ready abstraction for intelligent web automation and data extraction.',
     type: 'api',
-    previewColor: 'from-slate-800 to-black',
+    previewColor: 'from-red-600 to-orange-700',
   },
   {
-    id: 'cmp-universal-btn',
-    name: '全能动作按钮',
-    description: '强大的 React 按钮，支持多种变体（主要、次要、危险）及点击交互，完美适配键盘操作。',
+    id: 'cmp-data-viz',
+    name: 'Enterprise Analytics Shard',
+    description: 'Responsive charting components with dynamic data binding and luxury styling.',
     type: 'component',
-    previewColor: 'from-blue-400 to-indigo-500',
+    previewColor: 'from-gold-400 to-yellow-600',
   }
 ];

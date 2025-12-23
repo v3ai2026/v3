@@ -18,97 +18,102 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
-        body { margin: 0; padding: 0; overflow: hidden; background-color: #050505; color: #E3E3E3; font-family: 'Inter', sans-serif; }
-        ::-webkit-scrollbar { width: 4px; height: 4px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #1a1a1a; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: #BF953F; }
-        
-        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 12px; height: 12px; background: #BF953F; border-radius: 50%; cursor: pointer; border: 2px solid #050505; }
+        :root {
+            --bg-base: #0a0a0a;
+            --bg-surface: #121212;
+            --bg-surface-elevated: #1a1a1a;
+            --gold-primary: #D4AF37;
+            --gold-light: #F9E5A0;
+            --border-subtle: #222222;
+            --text-primary: #ffffff;
+            --text-secondary: #c0c0c0; /* Increased contrast from a0a0a0 */
+            --text-dim: #888888;       /* Increased contrast from 666666 */
+        }
 
-        /* Neural Transitions */
+        body { 
+            margin: 0; 
+            padding: 0; 
+            overflow: hidden; 
+            background-color: var(--bg-base); 
+            color: var(--text-primary); 
+            font-family: 'Inter', sans-serif; 
+            -webkit-font-smoothing: antialiased;
+        }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--gold-primary); }
+        
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; background: var(--gold-primary); border-radius: 50%; cursor: pointer; border: 2px solid var(--bg-base); }
+
+        /* Neural Transitions Registry */
         @keyframes modal-zoom {
-            0% { opacity: 0; transform: scale(0.92) translateY(5px); filter: blur(4px); }
+            0% { opacity: 0; transform: scale(0.8) translateY(30px); filter: blur(10px); }
             100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
         }
-        @keyframes modal-slide {
-            from { 
-                opacity: 0; 
-                transform: translateY(60px) scale(0.99); 
-                filter: blur(10px);
-            }
-            to { 
-                opacity: 1; 
-                transform: translateY(0) scale(1); 
-                filter: blur(0);
-            }
-        }
         @keyframes modal-fade {
-            from { opacity: 0; filter: blur(5px); }
+            from { opacity: 0; filter: blur(20px); }
             to { opacity: 1; filter: blur(0); }
         }
+        @keyframes modal-slide {
+            from { opacity: 0; transform: translateY(60px); filter: blur(10px); }
+            to { opacity: 1; transform: translateY(0); filter: blur(0); }
+        }
         @keyframes modal-fade-slide-in {
-            0% { 
-                opacity: 0; 
-                transform: translateY(20px) scale(0.98); 
-                filter: blur(2px);
-            }
-            100% { 
-                opacity: 1; 
-                transform: translateY(0) scale(1); 
-                filter: blur(0);
-            }
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
         }
         @keyframes backdrop-fade {
             from { opacity: 0; }
             to { opacity: 1; }
         }
 
-        /* Gold Glow Pulse - Luxurious Deep Gold */
+        /* Enterprise Gold Glow */
         @keyframes gold-glow {
-            0%, 100% { box-shadow: 0 0 15px rgba(191, 149, 63, 0.08); }
-            50% { box-shadow: 0 0 35px rgba(191, 149, 63, 0.2); }
+            0%, 100% { box-shadow: 0 0 20px rgba(212, 175, 55, 0.07); }
+            50% { box-shadow: 0 0 50px rgba(212, 175, 55, 0.18); }
         }
 
-        /* Utility Animation Classes */
         .animate-modal-zoom { animation: modal-zoom 0.5s cubic-bezier(0.19, 1, 0.22, 1) forwards; }
-        .animate-modal-slide { animation: modal-slide 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-        .animate-modal-fade { animation: modal-fade 0.4s ease-out forwards; }
-        .animate-modal-fade-slide-in { animation: modal-fade-slide-in 0.5s cubic-bezier(0.23, 1, 0.32, 1) forwards; }
-        .animate-backdrop { animation: backdrop-fade 0.6s ease-out forwards; }
+        .animate-modal-fade { animation: modal-fade 0.5s ease-out forwards; }
+        .animate-modal-slide { animation: modal-slide 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .animate-modal-fade-slide-in { animation: modal-fade-slide-in 0.4s ease-out forwards; }
+        .animate-backdrop { animation: backdrop-fade 0.5s ease-out forwards; }
         .gold-glow { animation: gold-glow 6s infinite ease-in-out; }
 
         .glass-panel {
-            background: rgba(8, 8, 8, 0.85);
+            background: rgba(18, 18, 18, 0.85);
             backdrop-filter: blur(30px);
-            border: 1px solid rgba(191, 149, 63, 0.15);
+            border: 1px solid var(--border-subtle);
         }
 
-        /* Enterprise Gold Gradient - Metallic Look */
         .text-gold {
-            background: linear-gradient(to right, #BF953F, #FCF6BA, #B38728, #FBF5B7, #AA771C);
+            background: linear-gradient(135deg, #D4AF37 0%, #F9E5A0 50%, #D4AF37 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
         .bg-gold-gradient {
-            background: linear-gradient(135deg, #BF953F 0%, #AA771C 100%);
+            background: linear-gradient(135deg, #D4AF37 0%, #AA8A2E 100%);
         }
 
         .border-gold-subtle {
-            border-color: rgba(191, 149, 63, 0.18);
+            border-color: rgba(212, 175, 55, 0.3);
         }
 
-        .custom-scrollbar::-webkit-scrollbar {
-            width: 4px;
+        /* Improved Readability Fixes */
+        .tracking-neural {
+            letter-spacing: 0.12em; /* Slightly tighter for better readability of longer strings */
         }
+
         .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: rgba(191, 149, 63, 0.2);
-            border-radius: 2px;
+            background: rgba(212, 175, 55, 0.2);
         }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: rgba(191, 149, 63, 0.4);
-        }
+
+        .surface-1 { background-color: var(--bg-base); }
+        .surface-2 { background-color: var(--bg-surface); }
+        .surface-3 { background-color: var(--bg-surface-elevated); }
     </style>
 </head>
 <body>
