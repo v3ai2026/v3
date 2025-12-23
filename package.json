@@ -1,5 +1,5 @@
 {
-  "name": "intellibuild-ai-compiler",
+  "name": "studio-agent-os",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -12,7 +12,7 @@
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "@google/genai": "^1.34.0",
-    "@monaco-editor/react": "^4.6.0"
+    "@monaco-editor/react": "^4.7.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

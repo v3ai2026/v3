@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Editor from '@monaco-editor/react';
 import { generateFullStackProject, convertToColabNotebook } from './services/geminiService';
 import { deployToVercel } from './services/vercelService';
@@ -10,7 +10,7 @@ import { NeuralModal, ModalTransition } from './components/NeuralModal';
 import { PLUGIN_REGISTRY, getActiveInstructions } from './services/extensionService';
 import { GeneratedFile, TabType, DeploymentStatus, ModelConfig, Extension } from './types';
 
-const INITIAL_SYSTEM = `你是一个顶级进化级全栈 AI 编排 system（IntelliBuild Studio Core）。`;
+const INITIAL_SYSTEM = `你是一个顶级进化级全栈 AI 编排 system (IntelliBuild Studio Core)。你正在操作一个分布式的代理集群。风格：极致简约、企业级、奢华。`;
 
 const App: React.FC = () => {
   const [modelConfig, setModelConfig] = useState<ModelConfig>({
@@ -29,11 +29,11 @@ const App: React.FC = () => {
   const [selectedFileIndex, setSelectedFileIndex] = useState(0);
   const [activeTab, setActiveTab] = useState<TabType>(TabType.WORKSPACE);
   const [agentLogs, setAgentLogs] = useState<any[]>([]);
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [commandInput, setCommandInput] = useState('');
   
-  // Vercel Credentials
+  // Deployment Credentials
   const [vercelToken, setVercelToken] = useState('');
-  
-  // GitHub Credentials
   const [githubToken, setGithubToken] = useState('');
   const [githubOwner, setGithubOwner] = useState('');
   const [githubRepoName, setGithubRepoName] = useState('');
@@ -41,579 +41,413 @@ const App: React.FC = () => {
   const [githubInitReadme, setGithubInitReadme] = useState(true);
   const [githubStatus, setGithubStatus] = useState<string>('');
   const [githubRepoUrl, setGithubRepoUrl] = useState<string | null>(null);
-
-  // GCS Credentials
-  const [gcsToken, setGcsToken] = useState('');
-  const [gcsProjectId, setGcsProjectId] = useState('');
-  const [gcsBucket, setGcsBucket] = useState('');
-  const [gcsBucketsList, setGcsBucketsList] = useState<any[]>([]);
-  const [gcsStatus, setGcsStatus] = useState<string>('');
-
-  const [projectName, setProjectName] = useState('studio-export-' + Math.floor(Math.random() * 1000));
+  const [vercelStatus, setVercelStatus] = useState<string>('');
+  
+  const [projectName, setProjectName] = useState('agent-' + Math.floor(Math.random() * 1000));
   const [deployment, setDeployment] = useState<DeploymentStatus | null>(null);
   const [showInfoModal, setShowInfoModal] = useState(false);
 
-  const toggleExtension = (id: string) => {
-    setExtensions(prev => prev.map(ext => 
-      ext.id === id ? { ...ext, enabled: !ext.enabled } : ext
-    ));
-  };
+  // Command Palette Handler
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setShowCommandPalette(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const handleRun = async () => {
     if (!input.trim()) return;
     setIsGenerating(true);
     setAgentLogs([]);
     
-    const pluginAugmentation = getActiveInstructions(extensions);
-    const augmentedConfig = {
-      ...modelConfig,
-      systemInstruction: `${modelConfig.systemInstruction}\n\nACTIVE PLUGINS:\n${pluginAugmentation}`
-    };
-
     try {
-      const result = await generateFullStackProject(input, augmentedConfig, COMPONENT_LIBRARY);
+      const result = await generateFullStackProject(input, modelConfig, COMPONENT_LIBRARY);
       setCurrentFiles(result.files);
       setAgentLogs(result.agentLogs);
       setProjectName(result.projectName || projectName);
-      setGithubRepoName(result.projectName || projectName);
-      setSelectedFileIndex(0);
       setActiveTab(TabType.EDITOR);
     } catch (e: any) {
-      alert("Studio Protocol Error: " + e.message);
+      alert("System Overload: " + e.message);
     } finally {
       setIsGenerating(false);
     }
   };
 
-  const handleCopyCode = () => {
-    const code = currentFiles[selectedFileIndex]?.content;
-    if (code) {
-      navigator.clipboard.writeText(code);
-      alert('Code copied to clipboard!');
+  const handleVercelDeploy = async () => {
+    if (!vercelToken) return alert('Vercel API Token is required.');
+    if (currentFiles.length === 0) return alert('No protocol files detected for synchronization.');
+    
+    setIsGenerating(true);
+    setVercelStatus('Synchronizing with Vercel Cloud...');
+    try {
+      const status = await deployToVercel(currentFiles, vercelToken, projectName);
+      setDeployment(status);
+      setVercelStatus(`Node Established: ${status.url}`);
+    } catch (err: any) {
+      setVercelStatus(`Sync Error: ${err.message}`);
+    } finally {
+      setIsGenerating(false);
     }
   };
 
   const handleGitHubPush = async () => {
-    if (!githubToken || !githubRepoName || !githubOwner) {
-      return alert('GitHub Token, Owner, and Repo Name are required');
-    }
-    if (currentFiles.length === 0) {
-      return alert('No code generated yet to push.');
-    }
-
-    setIsGenerating(true);
-    setGithubStatus('Initializing GitHub Handshake...');
+    if (!githubToken || !githubRepoName || !githubOwner) return alert('GitHub credentials required for source control.');
+    if (currentFiles.length === 0) return alert('Generate code files before pushing to repository.');
     
+    setIsGenerating(true);
+    setGithubStatus('Provisioning Repository...');
+    setGithubRepoUrl(null);
     try {
       const service = new GitHubService(githubToken);
       
-      setGithubStatus(`Creating repository: ${githubRepoName}...`);
-      await service.createRepository(githubRepoName, githubIsPrivate);
-      
+      // Attempt to create the repository, ignore if it already exists
+      try {
+        await service.createRepository(githubRepoName, githubIsPrivate);
+      } catch (e: any) {
+        console.warn("Target repository may already exist, proceeding with push synchronization.");
+      }
+
       const filesToPush = [...currentFiles];
       if (githubInitReadme) {
-        filesToPush.push({
-          path: 'README.md',
-          content: `# ${githubRepoName}\n\nGenerated by IntelliBuild Studio.\n\n## Project Description\n${input}`,
-          type: 'config'
+        filesToPush.push({ 
+          path: 'README.md', 
+          content: `# ${githubRepoName}\n\nAutomated delivery by Studio Agent Core. Optimized for enterprise performance and neural scalability.`, 
+          type: 'config' 
         });
       }
 
-      setGithubStatus(`Pushing ${filesToPush.length} files to master...`);
       await service.initializeAndPush(githubOwner, githubRepoName, filesToPush);
-      
       const url = `https://github.com/${githubOwner}/${githubRepoName}`;
       setGithubRepoUrl(url);
-      setGithubStatus('Push Successful!');
+      setGithubStatus('Source Synchronized Successfully.');
     } catch (err: any) {
-      setGithubStatus(`Error: ${err.message}`);
-      alert(err.message);
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  const handleExportColab = () => {
-    if (currentFiles.length === 0) {
-      alert("No files to export. Please build a project first.");
-      return;
-    }
-    const notebookJson = convertToColabNotebook(currentFiles, projectName);
-    const blob = new Blob([notebookJson], { type: 'application/x-ipynb+json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${projectName}.ipynb`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const handleGCSFetchBuckets = async () => {
-    if (!gcsToken || !gcsProjectId) return alert('Token and Project ID required');
-    try {
-      setGcsStatus('Fetching buckets...');
-      const service = new GCSService(gcsToken);
-      const buckets = await service.listBuckets(gcsProjectId);
-      setGcsBucketsList(buckets);
-      setGcsStatus('Buckets loaded.');
-    } catch (err: any) {
-      alert(err.message);
-      setGcsStatus('Fetch failed.');
-    }
-  };
-
-  const handleGCSUpload = async () => {
-    if (!gcsToken || !gcsBucket || currentFiles.length === 0) return alert('Token, Bucket, and Files required');
-    try {
-      setIsGenerating(true);
-      setGcsStatus('Uploading files...');
-      const service = new GCSService(gcsToken);
-      await service.uploadProject(gcsBucket, currentFiles, projectName);
-      setGcsStatus('Upload successful!');
-    } catch (err: any) {
-      alert(err.message);
-      setGcsStatus('Upload failed.');
+      setGithubStatus(`Pipeline Error: ${err.message}`);
     } finally {
       setIsGenerating(false);
     }
   };
 
   return (
-    <div className="flex h-screen bg-[#0E0E0E] text-[#E3E3E3] font-sans overflow-hidden">
-      {/* Sidebar navigation */}
-      <aside className="w-64 border-r border-[#303030] flex flex-col bg-[#111111]">
-        <div className="p-4 border-b border-[#303030] flex items-center justify-between">
-          <span className="font-bold text-xs tracking-widest text-blue-400">INTELLIBUILD STUDIO</span>
-        </div>
-        <div className="flex-1 overflow-y-auto p-2">
-          <div className="space-y-1">
-            <div className="px-3 py-2 text-[10px] font-bold text-[#555] uppercase tracking-tighter">Workflow</div>
-            <NavButton active={activeTab === TabType.WORKSPACE} onClick={() => setActiveTab(TabType.WORKSPACE)} label="Compiler" icon="⚡" />
-            <NavButton active={activeTab === TabType.EDITOR} onClick={() => setActiveTab(TabType.EDITOR)} label="Source Code" icon="📁" />
-            <NavButton active={activeTab === TabType.PLUGINS} onClick={() => setActiveTab(TabType.PLUGINS)} label="Plugin Depot" icon="🧩" />
-            <NavButton active={activeTab === TabType.DEPLOY} onClick={() => setActiveTab(TabType.DEPLOY)} label="Deployment" icon="🚀" />
-            <NavButton active={activeTab === TabType.GCS} onClick={() => setActiveTab(TabType.GCS)} label="Cloud Storage" icon="☁️" />
-            
-            <div className="pt-4 px-3 py-2 text-[10px] font-bold text-[#555] uppercase tracking-tighter">Tools</div>
-            <NavButton active={activeTab === TabType.COLAB} onClick={() => setActiveTab(TabType.COLAB)} label="Colab Lab" icon="📙" />
-            <NavButton active={false} onClick={() => setShowInfoModal(true)} label="Studio Info" icon="ⓘ" />
+    <div className="flex h-screen bg-[#050505] text-[#D1D1D1] font-sans overflow-hidden">
+      {/* Sidebar - Antigravity Style */}
+      <aside className="w-[72px] lg:w-64 border-r border-[#151515] flex flex-col bg-[#080808] transition-all duration-500 shadow-2xl">
+        <div className="h-16 flex items-center px-6 border-b border-[#151515] justify-center lg:justify-between overflow-hidden bg-black/40">
+          <div className="flex items-center space-x-3">
+            <div className="w-7 h-7 bg-gold-gradient rounded flex items-center justify-center font-black text-[10px] text-black shadow-lg shadow-[#D4AF37]/20">A</div>
+            <span className="hidden lg:block font-bold text-[11px] tracking-[0.2em] text-white">STUDIO AGENT</span>
           </div>
+          <div className="hidden lg:block text-[9px] text-[#444] font-mono font-bold tracking-tighter">OS_V4</div>
         </div>
-        <div className="p-4 border-t border-[#303030]">
-          <div className="flex items-center space-x-3 text-[10px] opacity-60 font-mono">
-            <div className={`w-1.5 h-1.5 rounded-full ${isGenerating ? 'bg-orange-500 animate-pulse' : 'bg-green-500'}`}></div>
-            <span>{isGenerating ? 'PROCESSING' : 'STABLE'}</span>
+
+        <nav className="flex-1 overflow-y-auto py-6 space-y-8 scrollbar-hide">
+          <div className="px-4">
+             <div className="hidden lg:block px-4 py-1 text-[8px] font-black text-[#333] uppercase tracking-[0.3em] mb-3">Communication</div>
+             <SidebarItem active={activeTab === TabType.INBOX} onClick={() => setActiveTab(TabType.INBOX)} label="Inbox" icon={<InboxIcon />} />
+             <SidebarItem active={activeTab === TabType.WORKSPACE} onClick={() => setActiveTab(TabType.WORKSPACE)} label="Playground" icon={<TerminalIcon />} />
           </div>
+
+          <div className="px-4">
+             <div className="hidden lg:block px-4 py-1 text-[8px] font-black text-[#333] uppercase tracking-[0.3em] mb-3">Development</div>
+             <SidebarItem active={activeTab === TabType.EDITOR} onClick={() => setActiveTab(TabType.EDITOR)} label="Source Code" icon={<CodeIcon />} />
+             <SidebarItem active={activeTab === TabType.BROWSER} onClick={() => setActiveTab(TabType.BROWSER)} label="Runtime View" icon={<BrowserIcon />} />
+             <SidebarItem active={activeTab === TabType.KNOWLEDGE} onClick={() => setActiveTab(TabType.KNOWLEDGE)} label="Intelligence" icon={<BookIcon />} />
+          </div>
+
+          <div className="px-4">
+             <div className="hidden lg:block px-4 py-1 text-[8px] font-black text-[#333] uppercase tracking-[0.3em] mb-3">Infrastructure</div>
+             <SidebarItem active={activeTab === TabType.DEPLOY} onClick={() => setActiveTab(TabType.DEPLOY)} label="Deployment" icon={<RocketIcon />} />
+             <SidebarItem active={activeTab === TabType.LOGS} onClick={() => setActiveTab(TabType.LOGS)} label="Telemetry" icon={<ActivityIcon />} />
+             <SidebarItem active={activeTab === TabType.PLUGINS} onClick={() => setActiveTab(TabType.PLUGINS)} label="Core Modules" icon={<PuzzleIcon />} />
+          </div>
+        </nav>
+
+        <div className="p-4 border-t border-[#151515] bg-black/20">
+           <SidebarItem active={false} onClick={() => setShowInfoModal(true)} label="System Status" icon={<StatusDot active={!isGenerating} />} />
         </div>
       </aside>
 
-      {/* Primary Workspace */}
-      <main className="flex-1 flex flex-col min-w-0">
-        <header className="h-14 border-b border-[#303030] flex items-center px-6 justify-between bg-[#111111]">
-          <div className="flex space-x-8 h-full">
-            <TabButton active={activeTab === TabType.WORKSPACE} onClick={() => setActiveTab(TabType.WORKSPACE)} label="Build" />
-            <TabButton active={activeTab === TabType.EDITOR} onClick={() => setActiveTab(TabType.EDITOR)} label="Inspect" />
-            <TabButton active={activeTab === TabType.PLUGINS} onClick={() => setActiveTab(TabType.PLUGINS)} label="Depot" />
-            <TabButton active={activeTab === TabType.LOGS} onClick={() => setActiveTab(TabType.LOGS)} label="Telemetry" />
+      {/* Main Container */}
+      <main className="flex-1 flex flex-col relative min-w-0 bg-[#050505]">
+        <header className="h-16 border-b border-[#151515] flex items-center px-8 justify-between bg-black/60 backdrop-blur-md z-10">
+          <div className="flex items-center space-x-3 text-[11px] font-bold tracking-widest text-[#555]">
+             <span className="hover:text-white cursor-pointer transition-colors duration-300">{projectName.toUpperCase()}</span>
+             <span className="text-[#222]">/</span>
+             <span className="text-white bg-[#D4AF37]/10 px-2 py-0.5 rounded border border-[#D4AF37]/20 uppercase">{activeTab}</span>
           </div>
-          <div className="flex items-center space-x-4">
-             {activeTab === TabType.WORKSPACE && (
-               <button onClick={handleRun} disabled={isGenerating} className="px-6 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold text-xs rounded-full transition-all shadow-[0_0_15px_rgba(37,99,235,0.3)] active:scale-95">
-                  {isGenerating ? 'GENERATING...' : 'INITIATE COMPILATION'}
-               </button>
-             )}
+          <div className="flex items-center space-x-6">
+            <button onClick={() => setShowCommandPalette(true)} className="flex items-center space-x-3 px-4 py-2 bg-[#0D0D0D] rounded-lg border border-[#1A1A1A] text-[10px] text-[#444] hover:border-[#D4AF37]/40 transition-all duration-500 gold-glow">
+               <SearchIcon />
+               <span className="tracking-widest">COMMAND CENTER</span>
+               <span className="bg-[#1A1A1A] px-2 py-0.5 rounded font-black text-[#333] border border-[#222]">⌘K</span>
+            </button>
+            <div className="h-4 w-[1px] bg-[#1A1A1A]"></div>
+            <button className="p-1 hover:text-[#D4AF37] transition-colors"><BellIcon /></button>
+            <div className="w-8 h-8 rounded-lg bg-gold-gradient p-[1px]">
+               <div className="w-full h-full bg-black rounded-lg flex items-center justify-center font-bold text-[10px] text-[#D4AF37]">SA</div>
+            </div>
           </div>
         </header>
 
-        <div className="flex-1 relative flex flex-col bg-[#0F0F0F] overflow-hidden">
+        {/* Content Area */}
+        <div className="flex-1 relative overflow-hidden flex flex-col">
           {activeTab === TabType.WORKSPACE && (
-            <div className="h-full flex flex-col">
-               <div className="p-6 border-b border-[#303030] bg-[#111111]/50">
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Protocol Instruction</label>
-                  </div>
-                  <textarea 
-                    value={modelConfig.systemInstruction}
-                    onChange={e => setModelConfig({...modelConfig, systemInstruction: e.target.value})}
-                    className="w-full bg-black/40 border border-[#303030] rounded-xl p-4 text-sm focus:border-blue-500 outline-none min-h-[100px] resize-none font-mono leading-relaxed"
-                  />
-               </div>
-               <div className="flex-1 p-8 flex flex-col">
-                  <div className="flex-1 flex flex-col glass-panel rounded-2xl p-6 border border-white/5 shadow-inner">
-                    <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase mb-4 tracking-widest">Compiler Prompt</label>
-                    <textarea 
-                      value={input}
-                      onChange={e => setInput(e.target.value)}
-                      className="flex-1 w-full bg-transparent text-2xl font-extralight focus:outline-none resize-none leading-relaxed placeholder:text-white/10"
-                      placeholder="e.g., Build a real-time data visualization dashboard..."
-                    />
-                  </div>
-               </div>
-            </div>
-          )}
+            <div className="h-full flex flex-col p-10 lg:p-16 max-w-6xl mx-auto w-full">
+              <div className="flex-1 flex flex-col space-y-12">
+                <div className="space-y-4">
+                  <h1 className="text-4xl font-black text-white tracking-tighter">Evolve New Protocol</h1>
+                  <p className="text-[#666] text-sm tracking-wide max-w-xl leading-relaxed uppercase font-bold text-[10px] opacity-60">Leverage distributed intelligence to architect, compile, and deploy professional-grade software systems.</p>
+                </div>
 
-          {activeTab === TabType.PLUGINS && (
-            <div className="h-full p-12 bg-[#0E0E0E] overflow-y-auto custom-scrollbar">
-              <div className="max-w-5xl mx-auto space-y-10">
-                <header>
-                  <h1 className="text-3xl font-extrabold text-white tracking-tight">Plugin Depot</h1>
-                  <p className="text-white/40 mt-2">Dynamic sub-systems for the Studio inference engine.</p>
-                </header>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {extensions.map(ext => (
-                    <div key={ext.id} className={`p-6 border rounded-2xl transition-all duration-300 ${ext.enabled ? 'bg-blue-600/5 border-blue-500/30' : 'bg-white/2 border-white/5 opacity-60'}`}>
-                      <div className="flex justify-between items-start mb-4">
-                        <div className="space-y-1">
-                          <span className={`text-[9px] font-bold px-2 py-0.5 rounded uppercase ${ext.enabled ? 'bg-blue-400 text-blue-900' : 'bg-white/10 text-white/50'}`}>
-                            {ext.category}
-                          </span>
-                          <h3 className="text-lg font-bold text-white">{ext.name}</h3>
-                          <p className="text-xs text-white/50">{ext.description}</p>
-                        </div>
-                        <button 
-                          onClick={() => toggleExtension(ext.id)}
-                          className={`w-12 h-6 rounded-full relative transition-all duration-500 ${ext.enabled ? 'bg-blue-500' : 'bg-[#303030]'}`}
-                        >
-                          <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all duration-300 ${ext.enabled ? 'left-7' : 'left-1'}`} />
-                        </button>
+                <div className="relative group p-1 bg-gradient-to-br from-[#D4AF37]/20 to-transparent rounded-[2.5rem] gold-glow">
+                   <div className="bg-[#080808] border border-[#1A1A1A] rounded-[2.2rem] p-10 transition-all duration-700 group-focus-within:border-[#D4AF37]/50">
+                      <textarea 
+                        value={input}
+                        onChange={e => setInput(e.target.value)}
+                        className="w-full bg-transparent border-none text-xl lg:text-2xl min-h-[260px] outline-none text-white placeholder:text-[#222] font-medium resize-none tracking-tight leading-snug"
+                        placeholder="Define the scope of the next iteration..."
+                      />
+                      <div className="flex justify-between items-center mt-6">
+                         <div className="flex space-x-2">
+                            <span className="text-[9px] font-black text-[#333] border border-[#111] px-2 py-1 rounded uppercase tracking-[0.2em]">Ready for Inference</span>
+                         </div>
+                         <button 
+                            onClick={handleRun}
+                            disabled={isGenerating || !input.trim()}
+                            className="group flex items-center space-x-3 px-8 py-4 bg-gold-gradient text-black font-black text-[11px] rounded-2xl transition-all duration-500 hover:scale-[1.02] active:scale-95 disabled:opacity-20 disabled:grayscale uppercase tracking-[0.3em] shadow-2xl shadow-[#D4AF37]/20"
+                          >
+                            <span>{isGenerating ? 'Synthesizing...' : 'Execute Task'}</span>
+                            {!isGenerating && <ArrowRightIcon />}
+                         </button>
                       </div>
-                    </div>
-                  ))}
+                   </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                   <LuxuryCard title="BROWSER SYNC" desc="Synchronize runtime state with local agent." icon={<VideoIcon />} />
+                   <LuxuryCard title="NEURAL KNOWLEDGE" desc="Inject local documentation into agent context." icon={<BookIcon />} />
+                   <LuxuryCard title="AGENT SWARM" desc="Coordinate multi-stage production pipelines." icon={<UsersIcon />} />
                 </div>
               </div>
             </div>
+          )}
+
+          {activeTab === TabType.BROWSER && (
+             <div className="h-full flex flex-col bg-[#050505]">
+                <div className="h-12 border-b border-[#151515] bg-[#0A0A0A] flex items-center px-6 space-x-4">
+                   <div className="flex items-center space-x-2">
+                      <button className="p-1.5 hover:bg-white/5 rounded-md transition-colors"><ChevronLeftIcon /></button>
+                      <button className="p-1.5 hover:bg-white/5 rounded-md transition-colors"><ChevronRightIcon /></button>
+                      <button className="p-1.5 hover:bg-white/5 rounded-md transition-colors"><RefreshIcon /></button>
+                   </div>
+                   <div className="flex-1 bg-black/60 border border-[#1A1A1A] rounded-lg px-4 py-1.5 text-[10px] text-[#444] flex items-center space-x-3 font-mono">
+                      <span className="text-[#D4AF37]/60 font-black">HTTPS://</span>
+                      <span className="tracking-widest">STUDIO-AGENT.INTERNAL/RUNTIME</span>
+                   </div>
+                   <div className="flex items-center space-x-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#D4AF37] shadow-[0_0_8px_#D4AF37]"></div>
+                      <span className="text-[9px] text-[#D4AF37] font-black uppercase tracking-[0.2em]">CONTROL_ACTIVE</span>
+                   </div>
+                </div>
+                <div className="flex-1 flex items-center justify-center relative">
+                   <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(212,175,55,0.03)_0%,_transparent_70%)]"></div>
+                   <div className="text-center space-y-6 z-10">
+                      <div className="w-20 h-20 border-2 border-[#151515] border-t-[#D4AF37] rounded-full animate-spin mx-auto"></div>
+                      <p className="text-[10px] text-[#333] font-black uppercase tracking-[0.4em]">Linking Sub-Agent Viewport...</p>
+                   </div>
+                </div>
+             </div>
           )}
 
           {activeTab === TabType.EDITOR && (
-            <div className="h-full flex">
-              <div className="w-56 border-r border-[#303030] bg-[#111111] overflow-y-auto">
-                <div className="p-4 border-b border-[#303030] text-[10px] font-bold text-[#555] uppercase tracking-tighter">Project Files</div>
-                {currentFiles.map((f, i) => (
-                  <button key={i} onClick={() => setSelectedFileIndex(i)} className={`w-full text-left px-4 py-3 text-xs truncate transition-all ${selectedFileIndex === i ? 'bg-[#1C1C1C] text-blue-400 border-r-2 border-blue-400' : 'text-[#888] hover:bg-[#161616]'}`}>
-                    {f.path.split('/').pop()}
-                  </button>
-                ))}
-              </div>
-              <div className="flex-1 relative group">
-                <Editor height="100%" theme="vs-dark" defaultLanguage="typescript" value={currentFiles[selectedFileIndex]?.content || ""} options={{ fontSize: 13, minimap: { enabled: false } }} />
-                <div className="absolute top-4 right-8 opacity-0 group-hover:opacity-100 transition-opacity">
-                   <button onClick={handleCopyCode} className="px-3 py-1.5 bg-black/50 backdrop-blur border border-white/10 rounded-md text-[10px] font-bold text-white/60 hover:text-white uppercase tracking-widest flex items-center space-x-2">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                      <span>Copy Snippet</span>
-                   </button>
+             <div className="h-full flex">
+                <div className="w-64 border-r border-[#151515] bg-[#080808] flex flex-col">
+                   <div className="p-4 text-[9px] font-black text-[#333] uppercase tracking-[0.3em] border-b border-[#151515] bg-black/20">Explorer</div>
+                   <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-1">
+                      {currentFiles.length === 0 ? (
+                        <div className="p-6 text-[9px] text-[#222] text-center font-bold italic uppercase tracking-widest">Protocol Empty</div>
+                      ) : currentFiles.map((f, i) => (
+                        <button 
+                          key={i} 
+                          onClick={() => setSelectedFileIndex(i)}
+                          className={`w-full text-left px-4 py-2.5 text-[10px] font-bold rounded-lg truncate transition-all duration-300 border ${selectedFileIndex === i ? 'bg-[#D4AF37]/5 text-[#D4AF37] border-[#D4AF37]/30 shadow-lg' : 'text-[#444] border-transparent hover:bg-white/5 hover:text-[#888]'}`}
+                        >
+                          {f.path.split('/').pop()}
+                        </button>
+                      ))}
+                   </div>
                 </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === TabType.LOGS && (
-            <div className="p-8 h-full overflow-y-auto font-mono text-xs">
-              <h2 className="text-sm font-bold mb-4 text-blue-400 uppercase tracking-widest">Telemetric Flow Log</h2>
-              <div className="space-y-3">
-                <div className="flex space-x-4 border-l-2 border-green-500/30 pl-4 py-2 bg-green-500/5 rounded-r-md">
-                  <span className="text-green-500 font-bold w-24 uppercase">[SYSTEM]</span>
-                  <span className="text-[#D1D5DB]">Studio system ready. Plugins synced.</span>
+                <div className="flex-1 flex flex-col bg-[#050505]">
+                   <div className="h-12 bg-[#080808] border-b border-[#151515] flex items-center px-6 justify-between">
+                      <div className="flex items-center space-x-3">
+                         <span className="text-[10px] font-mono font-bold text-[#333] uppercase tracking-widest">{currentFiles[selectedFileIndex]?.path || 'No Selection'}</span>
+                         {currentFiles[selectedFileIndex] && <span className="w-1 h-1 rounded-full bg-[#333]"></span>}
+                         <span className="text-[9px] font-black text-[#222] uppercase tracking-widest">{currentFiles[selectedFileIndex]?.type}</span>
+                      </div>
+                      <div className="flex space-x-3">
+                        <button className="px-4 py-1.5 bg-[#0D0D0D] hover:bg-[#151515] rounded-lg text-[9px] font-black uppercase tracking-widest text-[#444] border border-[#1A1A1A] transition-all">Audit</button>
+                        <button className="px-4 py-1.5 bg-[#D4AF37]/10 text-[#D4AF37] hover:bg-[#D4AF37]/20 rounded-lg text-[9px] font-black uppercase tracking-widest border border-[#D4AF37]/20 transition-all">Refactor</button>
+                      </div>
+                   </div>
+                   <div className="flex-1 relative border-t border-[#151515]/50">
+                      <Editor 
+                        height="100%" 
+                        theme="vs-dark" 
+                        defaultLanguage="typescript" 
+                        value={currentFiles[selectedFileIndex]?.content || "// Establish a protocol to view synthesized source code"} 
+                        options={{ 
+                          fontSize: 13, 
+                          minimap: { enabled: false }, 
+                          padding: { top: 24 },
+                          backgroundColor: '#050505'
+                        }}
+                      />
+                   </div>
                 </div>
-                {agentLogs.map((log, i) => (
-                  <div key={i} className="flex space-x-4 border-l-2 border-[#303030] pl-4 py-2">
-                    <span className="text-[#9CA3AF] w-24">[{log.agent.toUpperCase()}]</span>
-                    <span className="text-[#D1D5DB]">{log.action}</span>
-                    <span className={`text-[9px] px-2 py-0.5 rounded ${log.status === 'complete' ? 'bg-green-900/40 text-green-400' : 'bg-blue-900/40 text-blue-400'}`}>
-                      {log.status.toUpperCase()}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {activeTab === TabType.COLAB && (
-            <div className="h-full p-12 bg-[#0E0E0E] flex flex-col items-center justify-center space-y-8 text-center">
-              <div className="w-20 h-20 bg-orange-500/10 rounded-3xl flex items-center justify-center text-4xl border border-orange-500/20">
-                📙
-              </div>
-              <div className="max-w-md space-y-3">
-                <h2 className="text-2xl font-bold text-white tracking-tight">Export to Google Colab</h2>
-                <p className="text-white/50 text-sm leading-relaxed">
-                  Convert your generated project files into a single Jupyter Notebook (.ipynb) compatible with Google Colab.
-                </p>
-              </div>
-              <button onClick={handleExportColab} disabled={currentFiles.length === 0} className="px-10 py-4 bg-orange-600 hover:bg-orange-500 disabled:opacity-30 text-white font-bold rounded-2xl transition-all shadow-xl active:scale-95 text-xs uppercase tracking-widest">
-                Download Notebook (.ipynb)
-              </button>
-            </div>
+             </div>
           )}
 
           {activeTab === TabType.DEPLOY && (
-            <div className="h-full grid grid-cols-1 md:grid-cols-2 gap-8 p-12 overflow-y-auto bg-[#0E0E0E] custom-scrollbar">
-              {/* Vercel Section */}
-              <div className="border border-[#303030] rounded-3xl p-8 bg-[#141414] shadow-2xl flex flex-col">
-                 <h2 className="text-xl font-bold flex items-center space-x-2 text-white mb-2"><span>▲</span> <span>Vercel Edge</span></h2>
-                 <p className="text-xs text-[#9CA3AF] mb-8 font-medium">Instantly deploy to global infrastructure.</p>
-                 <div className="space-y-5 flex-1">
-                    <div>
-                      <label className="text-[10px] font-bold uppercase tracking-widest text-[#555]">Vercel API Token</label>
-                      <input 
-                        type="password" 
-                        value={vercelToken} 
-                        onChange={e => setVercelToken(e.target.value)} 
-                        className="w-full bg-[#0E0E0E] border border-[#303030] rounded-xl p-3 text-sm mt-1 focus:ring-1 ring-blue-500 outline-none transition-all placeholder:text-[#333]" 
-                        placeholder="sk_..." 
-                      />
-                    </div>
-                 </div>
-                 <div className="mt-8 space-y-4">
-                   <button 
-                     onClick={async () => {
-                       if (!vercelToken) return alert('Token required');
-                       setIsGenerating(true);
-                       try {
-                         const d = await deployToVercel(currentFiles, vercelToken, projectName);
-                         setDeployment(d);
-                       } catch (err: any) { alert(err.message); } finally { setIsGenerating(false); }
-                     }} 
-                     className="w-full py-4 bg-white text-black font-bold rounded-2xl hover:bg-gray-100 transition-all text-xs uppercase tracking-widest shadow-lg active:scale-95 disabled:opacity-50"
-                     disabled={isGenerating}
-                   >
-                     Launch to Vercel
-                   </button>
-                   {deployment && (
-                     <div className="p-4 bg-green-500/5 border border-green-500/20 rounded-2xl text-xs">
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="text-[#555] font-bold uppercase tracking-widest">Status</span>
-                          <span className="text-green-400 font-bold">{deployment.state}</span>
-                        </div>
-                        <a href={`https://${deployment.url}`} target="_blank" className="w-full block py-2 text-center bg-blue-500/10 text-blue-400 rounded-xl border border-blue-500/20 hover:bg-blue-500/20 transition-all font-bold mt-2">Open Deployment →</a>
-                     </div>
-                   )}
-                 </div>
-              </div>
+            <div className="h-full p-12 lg:p-20 overflow-y-auto custom-scrollbar bg-[#050505]">
+               <div className="max-w-5xl mx-auto space-y-16">
+                  <header className="space-y-4">
+                    <h2 className="text-3xl font-black text-white tracking-tighter uppercase">Infrastructure Pipeline</h2>
+                    <p className="text-[10px] font-black text-[#333] uppercase tracking-[0.4em] max-w-lg leading-relaxed">Automate the production cycle from studio synthesis to global edge delivery.</p>
+                  </header>
 
-              {/* GitHub Section */}
-              <div className="border border-[#303030] rounded-3xl p-8 bg-[#141414] shadow-2xl flex flex-col">
-                 <h2 className="text-xl font-bold flex items-center space-x-2 text-white mb-2">
-                   <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
-                   <span>GitHub Pipeline</span>
-                 </h2>
-                 <p className="text-xs text-[#9CA3AF] mb-8 font-medium">Commit and push to your repositories.</p>
-                 <div className="space-y-4 flex-1">
-                    <div>
-                      <label className="text-[10px] font-bold uppercase tracking-widest text-[#555]">Personal Access Token</label>
-                      <input 
-                        type="password" 
-                        value={githubToken} 
-                        onChange={e => setGithubToken(e.target.value)} 
-                        className="w-full bg-[#0E0E0E] border border-[#303030] rounded-xl p-3 text-sm mt-1 focus:ring-1 ring-blue-500 outline-none transition-all placeholder:text-[#333]" 
-                        placeholder="ghp_..." 
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-[10px] font-bold uppercase tracking-widest text-[#555]">Owner / Username</label>
-                        <input 
-                          type="text" 
-                          value={githubOwner} 
-                          onChange={e => setGithubOwner(e.target.value)} 
-                          className="w-full bg-[#0E0E0E] border border-[#303030] rounded-xl p-3 text-sm mt-1 focus:ring-1 ring-blue-500 outline-none transition-all placeholder:text-[#333]" 
-                          placeholder="octocat" 
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] font-bold uppercase tracking-widest text-[#555]">Repository Name</label>
-                        <input 
-                          type="text" 
-                          value={githubRepoName} 
-                          onChange={e => setGithubRepoName(e.target.value)} 
-                          className="w-full bg-[#0E0E0E] border border-[#303030] rounded-xl p-3 text-sm mt-1 focus:ring-1 ring-blue-500 outline-none transition-all placeholder:text-[#333]" 
-                          placeholder="my-cool-project" 
-                        />
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-6 pt-2">
-                      <label className="flex items-center space-x-2 cursor-pointer group">
-                        <input type="checkbox" checked={githubIsPrivate} onChange={e => setGithubIsPrivate(e.target.checked)} className="hidden" />
-                        <div className={`w-4 h-4 rounded border ${githubIsPrivate ? 'bg-blue-600 border-blue-600' : 'border-[#444]'} flex items-center justify-center transition-all`}>
-                          {githubIsPrivate && <svg width="10" height="10" viewBox="0 0 24 24" fill="white"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                     <div className="bg-[#080808] border border-[#151515] rounded-3xl p-10 space-y-8 shadow-2xl relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-[#D4AF37]/5 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-[#D4AF37]/10 transition-colors"></div>
+                        <h3 className="flex items-center space-x-4 text-white font-black text-xs uppercase tracking-[0.3em]"><RocketIcon /> <span>Vercel Edge</span></h3>
+                        <div className="space-y-6">
+                           <InputField label="Inference Token" type="password" value={vercelToken} onChange={setVercelToken} placeholder="sk_..." />
                         </div>
-                        <span className="text-[10px] font-bold uppercase text-[#888] group-hover:text-white transition-colors">Private Repo</span>
-                      </label>
-                      <label className="flex items-center space-x-2 cursor-pointer group">
-                        <input type="checkbox" checked={githubInitReadme} onChange={e => setGithubInitReadme(e.target.checked)} className="hidden" />
-                        <div className={`w-4 h-4 rounded border ${githubInitReadme ? 'bg-blue-600 border-blue-600' : 'border-[#444]'} flex items-center justify-center transition-all`}>
-                          {githubInitReadme && <svg width="10" height="10" viewBox="0 0 24 24" fill="white"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>}
-                        </div>
-                        <span className="text-[10px] font-bold uppercase text-[#888] group-hover:text-white transition-colors">Init README</span>
-                      </label>
-                    </div>
-                 </div>
-                 <div className="mt-8 space-y-4">
-                   <button 
-                     onClick={handleGitHubPush} 
-                     className="w-full py-4 bg-[#2EA44F] text-white font-bold rounded-2xl hover:bg-[#2C974B] transition-all text-xs uppercase tracking-widest shadow-lg active:scale-95 disabled:opacity-50"
-                     disabled={isGenerating}
-                   >
-                     {isGenerating ? 'Pushing...' : 'Initialize & Sync GitHub'}
-                   </button>
-                   {githubStatus && (
-                     <div className="p-4 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-mono">
-                        <div className="flex justify-between items-center mb-1">
-                          <span className="text-[#555] uppercase font-bold">Protocol Status</span>
-                        </div>
-                        <span className="text-white/70 block truncate">{githubStatus}</span>
-                        {githubRepoUrl && (
-                          <a href={githubRepoUrl} target="_blank" className="text-blue-400 mt-2 block underline">Visit Repository →</a>
+                        <button 
+                          onClick={handleVercelDeploy}
+                          disabled={isGenerating || !vercelToken}
+                          className="w-full py-5 bg-gold-gradient text-black font-black rounded-2xl text-[10px] uppercase tracking-[0.4em] hover:scale-[1.01] active:scale-95 transition-all shadow-2xl shadow-[#D4AF37]/20 disabled:opacity-10"
+                        >
+                          {isGenerating ? 'SYNCHRONIZING...' : 'PROVISION TO EDGE'}
+                        </button>
+                        {vercelStatus && (
+                          <div className="space-y-4 bg-black/40 p-4 rounded-xl border border-white/5">
+                             <p className="text-[9px] font-mono text-center text-[#444] uppercase tracking-widest break-all leading-relaxed">{vercelStatus}</p>
+                             {deployment?.url && (
+                               <a 
+                                 href={`https://${deployment.url}`} 
+                                 target="_blank" 
+                                 rel="noopener noreferrer" 
+                                 className="block text-center text-[10px] font-black text-[#D4AF37] hover:text-white underline uppercase tracking-[0.3em] transition-colors"
+                               >
+                                 Open Production Deployment
+                               </a>
+                             )}
+                          </div>
                         )}
                      </div>
-                   )}
-                 </div>
-              </div>
-            </div>
-          )}
 
-          {activeTab === TabType.GCS && (
-            <div className="h-full p-12 bg-[#0E0E0E] overflow-y-auto custom-scrollbar">
-              <div className="max-w-4xl mx-auto space-y-8">
-                <header className="flex items-center space-x-4">
-                  <div className="w-12 h-12 bg-blue-500/20 rounded-2xl flex items-center justify-center text-2xl border border-blue-500/30">☁️</div>
-                  <div>
-                    <h1 className="text-2xl font-extrabold text-white">Google Cloud Storage</h1>
-                    <p className="text-white/40 text-sm">Upload and manage project assets in GCS buckets.</p>
-                  </div>
-                </header>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="glass-panel p-8 rounded-3xl border border-white/5 space-y-6">
-                    <h3 className="text-xs font-bold text-blue-400 uppercase tracking-widest">Configuration</h3>
-                    
-                    <div className="space-y-4">
-                      <div>
-                        <label className="text-[10px] font-bold uppercase tracking-widest text-[#555]">Access Token (OAuth2)</label>
-                        <input 
-                          type="password" 
-                          value={gcsToken} 
-                          onChange={e => setGcsToken(e.target.value)} 
-                          className="w-full bg-[#0E0E0E] border border-[#303030] rounded-xl p-3 text-sm focus:ring-1 ring-blue-500 outline-none" 
-                          placeholder="ya29.a0AfH..."
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] font-bold uppercase tracking-widest text-[#555]">Project ID</label>
-                        <div className="flex gap-2">
-                          <input 
-                            type="text" 
-                            value={gcsProjectId} 
-                            onChange={e => setGcsProjectId(e.target.value)} 
-                            className="flex-1 bg-[#0E0E0E] border border-[#303030] rounded-xl p-3 text-sm focus:ring-1 ring-blue-500 outline-none" 
-                            placeholder="my-project-123"
-                          />
-                          <button onClick={handleGCSFetchBuckets} className="px-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-all text-[10px] font-bold uppercase">Fetch</button>
+                     <div className="bg-[#080808] border border-[#151515] rounded-3xl p-10 space-y-8 shadow-2xl relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-[#D4AF37]/5 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-[#D4AF37]/10 transition-colors"></div>
+                        <h3 className="flex items-center space-x-4 text-white font-black text-xs uppercase tracking-[0.3em]"><CodeIcon /> <span>GitHub SCM</span></h3>
+                        <div className="space-y-5">
+                           <InputField label="Auth Token" type="password" value={githubToken} onChange={setGithubToken} placeholder="ghp_..." />
+                           <div className="grid grid-cols-2 gap-5">
+                              <InputField label="Namespace" value={githubOwner} onChange={setGithubOwner} placeholder="owner-name" />
+                              <InputField label="Artifact ID" value={githubRepoName} onChange={setGithubRepoName} placeholder="repo-name" />
+                           </div>
+                           <div className="flex space-x-6 pt-2">
+                             <Toggle label="Private Protocol" active={githubIsPrivate} onToggle={() => setGithubIsPrivate(!githubIsPrivate)} />
+                             <Toggle label="Bootstrap README" active={githubInitReadme} onToggle={() => setGithubInitReadme(!githubInitReadme)} />
+                           </div>
                         </div>
-                      </div>
-                      <div>
-                        <label className="text-[10px] font-bold uppercase tracking-widest text-[#555]">Select Bucket</label>
-                        <select 
-                          value={gcsBucket} 
-                          onChange={e => setGcsBucket(e.target.value)}
-                          className="w-full bg-[#0E0E0E] border border-[#303030] rounded-xl p-3 text-sm focus:ring-1 ring-blue-500 outline-none text-white font-mono"
+                        <button 
+                          onClick={handleGitHubPush} 
+                          disabled={isGenerating || !githubToken}
+                          className="w-full py-5 border border-[#D4AF37]/30 bg-[#D4AF37]/5 text-[#D4AF37] font-black rounded-2xl text-[10px] uppercase tracking-[0.4em] hover:bg-[#D4AF37]/10 transition-all shadow-xl active:scale-95 disabled:opacity-10"
                         >
-                          <option value="">Choose a bucket...</option>
-                          {gcsBucketsList.map(b => (
-                            <option key={b.id} value={b.name}>{b.name}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
+                          {isGenerating ? 'SYNCHRONIZING...' : 'SYNCHRONIZE SOURCE'}
+                        </button>
+                        {githubStatus && (
+                          <div className="space-y-4 bg-black/40 p-4 rounded-xl border border-white/5">
+                             <p className="text-[9px] font-mono text-center text-[#333] uppercase tracking-widest">{githubStatus}</p>
+                             {githubRepoUrl && (
+                               <a 
+                                 href={githubRepoUrl} 
+                                 target="_blank" 
+                                 rel="noopener noreferrer" 
+                                 className="block text-center text-[10px] font-black text-[#D4AF37] hover:text-white underline uppercase tracking-[0.3em] transition-colors"
+                               >
+                                 View on GitHub
+                               </a>
+                             )}
+                          </div>
+                        )}
+                     </div>
                   </div>
-
-                  <div className="glass-panel p-8 rounded-3xl border border-white/5 flex flex-col justify-between">
-                    <div>
-                      <h3 className="text-xs font-bold text-blue-400 uppercase tracking-widest mb-4">Action</h3>
-                      <p className="text-xs text-white/50 leading-relaxed mb-6">
-                        Upload all currently generated files to the selected bucket. 
-                        Files will be stored under a folder named after your project: <span className="text-blue-400 font-mono">/{projectName}</span>
-                      </p>
-                      
-                      {gcsStatus && (
-                        <div className="mb-6 p-4 bg-blue-500/5 border border-blue-500/10 rounded-xl">
-                          <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest block mb-1">Status Report</span>
-                          <span className="text-xs font-mono">{gcsStatus}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    <button 
-                      onClick={handleGCSUpload}
-                      disabled={!gcsToken || !gcsBucket || currentFiles.length === 0 || isGenerating}
-                      className="w-full py-4 bg-blue-600 hover:bg-blue-500 disabled:opacity-30 text-white font-bold rounded-2xl transition-all shadow-xl active:scale-95 text-xs uppercase tracking-widest"
-                    >
-                      {isGenerating ? 'Processing...' : 'Upload Project to GCS'}
-                    </button>
-                  </div>
-                </div>
-              </div>
+               </div>
             </div>
           )}
+
+          {activeTab === TabType.INBOX && <PlaceholderView title="Communications" icon={<InboxIcon />} desc="Consolidated data streams from distributed agent instances and webhooks." />}
+          {activeTab === TabType.KNOWLEDGE && <PlaceholderView title="Neural Corpus" icon={<BookIcon />} desc="RAG-enabled knowledge base for deep architectural context." />}
+          {activeTab === TabType.LOGS && <PlaceholderView title="Telemetry Streams" icon={<ActivityIcon />} desc="Real-time audit logs and hardware performance telemetry." />}
+          {activeTab === TabType.PLUGINS && <PlaceholderView title="Core Extensions" icon={<PuzzleIcon />} desc="Expand the capabilities of the Studio Agent Core protocol." />}
+
         </div>
       </main>
 
-      {/* Right control panel */}
-      <aside className="w-72 border-l border-[#303030] bg-[#111111] flex flex-col p-6 space-y-8">
-        <div className="space-y-4">
-          <h3 className="text-[10px] font-bold text-blue-400 uppercase tracking-widest border-b border-[#262626] pb-2">Configuration</h3>
-          <div>
-            <label className="text-[11px] mb-2 uppercase font-bold text-[#888]">Compiler</label>
-            <select className="w-full bg-[#0E0E0E] border border-[#303030] rounded p-2 text-xs outline-none focus:border-blue-500 text-white font-mono">
-               <option>gemini-3-pro-preview</option>
-               <option>gemini-3-flash-preview</option>
-            </select>
-          </div>
-          <div>
-            <label className="text-[11px] mb-2 uppercase font-bold text-[#888]">Modal Animation</label>
-            <select 
-              value={modalTransition}
-              onChange={(e) => setModalTransition(e.target.value as ModalTransition)}
-              className="w-full bg-[#0E0E0E] border border-[#303030] rounded p-2 text-xs outline-none focus:border-blue-500 text-white"
-            >
-               <option value="zoom">Zoom (Standard)</option>
-               <option value="slide">Slide (Vertical)</option>
-               <option value="fade">Fade (Ghost)</option>
-               <option value="fadeSlideIn">Fade + Slide (Subtle)</option>
-            </select>
-          </div>
-        </div>
-        
-        <div className="flex-1"></div>
-        
-        <div className="p-4 bg-blue-500/5 border border-blue-500/10 rounded-2xl space-y-3">
-           <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Neural UI Stack</p>
-           <p className="text-[11px] text-[#9CA3AF] leading-relaxed">
-             Active Files: {currentFiles.length}
-           </p>
-           <div className="flex flex-wrap gap-1 pt-1">
-             {currentFiles.slice(0, 3).map((f, idx) => (
-               <span key={idx} className="px-2 py-0.5 bg-blue-900/40 text-blue-400 text-[8px] font-bold rounded uppercase truncate max-w-[80px]">{f.path.split('/').pop()}</span>
-             ))}
-             {currentFiles.length > 3 && <span className="text-[8px] text-white/30 font-bold">+{currentFiles.length - 3}</span>}
+      {/* Command Palette Overlay */}
+      {showCommandPalette && (
+        <div className="fixed inset-0 z-[200] flex items-start justify-center pt-[12vh] px-4">
+           <div className="fixed inset-0 bg-black/90 backdrop-blur-xl" onClick={() => setShowCommandPalette(false)}></div>
+           <div className="relative w-full max-w-2xl bg-[#0A0A0A] border border-[#1A1A1A] rounded-3xl shadow-[0_0_50px_rgba(0,0,0,1)] overflow-hidden animate-modal-zoom border-gold-subtle gold-glow">
+              <div className="flex items-center px-6 py-6 border-b border-[#1A1A1A]">
+                 <SearchIcon />
+                 <input 
+                   autoFocus
+                   value={commandInput}
+                   onChange={e => setCommandInput(e.target.value)}
+                   className="flex-1 bg-transparent border-none outline-none text-xl px-5 text-white placeholder:text-[#222] font-medium tracking-tight" 
+                   placeholder="Enter directive or search modules..."
+                 />
+                 <span className="text-[9px] text-[#444] font-black border border-[#1A1A1A] px-2 py-1 rounded uppercase tracking-widest">ESC</span>
+              </div>
+              <div className="max-h-[420px] overflow-y-auto custom-scrollbar p-3">
+                 <CommandItem label="Initiate Cloud Deployment" shortcut="⌘D" icon={<RocketIcon />} onClick={() => { setActiveTab(TabType.DEPLOY); setShowCommandPalette(false); }} />
+                 <CommandItem label="Inspect Source Protocol" shortcut="⌘A" icon={<CodeIcon />} onClick={() => { setActiveTab(TabType.EDITOR); setShowCommandPalette(false); }} />
+                 <CommandItem label="Toggle Deep Dark UI" shortcut="⇧D" icon={<MoonIcon />} />
+                 <CommandItem label="Export to Jupyter Lab" shortcut="⌥C" icon={<BookIcon />} />
+                 <CommandItem label="Reinitialize Git Pipeline" shortcut="G" icon={<TerminalIcon />} />
+              </div>
            </div>
         </div>
-      </aside>
+      )}
 
       <NeuralModal 
         isOpen={showInfoModal} 
         onClose={() => setShowInfoModal(false)} 
-        title="Studio Protocol Information" 
+        title="CORE DIAGNOSTICS" 
         transition={modalTransition}
         content={
-          <div className="space-y-4">
-            <p className="text-white/70 text-sm">Protocol Core: IntelliBuild AI v4.0.2</p>
-            <p className="text-white/40 text-xs">Current transition set to: <span className="text-blue-400 font-mono">{modalTransition}</span></p>
-            <div className="pt-4 border-t border-white/5 space-y-2">
-               <p className="text-[10px] font-bold text-white/40 uppercase">System Integrity</p>
-               <div className="grid grid-cols-2 gap-2 text-[10px]">
-                 <div className="flex justify-between border border-white/5 p-2 rounded"><span>latency</span> <span className="text-green-500">24ms</span></div>
-                 <div className="flex justify-between border border-white/5 p-2 rounded"><span>status</span> <span className="text-green-500">verified</span></div>
-               </div>
-            </div>
+          <div className="space-y-6">
+             <div className="p-6 bg-black/60 rounded-2xl border border-white/5 space-y-4">
+                <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
+                   <span className="text-[#333]">Inference Engine</span>
+                   <span className="text-[#D4AF37]">GEMINI-3-PRO-ULTRA</span>
+                </div>
+                <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
+                   <span className="text-[#333]">Communication Layer</span>
+                   <span className="text-white">ENCRYPTED_SSL/TLS_V1.3</span>
+                </div>
+                <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
+                   <span className="text-[#333]">Memory Buffer</span>
+                   <span className="text-white">128K TOKENS ACTIVE</span>
+                </div>
+             </div>
+             <p className="text-[10px] text-[#444] font-bold leading-relaxed uppercase tracking-widest">Studio Agent OS is operating at peak efficiency. Current latency is sub-10ms for local orchestration.</p>
           </div>
         } 
       />
@@ -621,17 +455,85 @@ const App: React.FC = () => {
   );
 };
 
-const TabButton: React.FC<{ active: boolean; onClick: () => void; label: string }> = ({ active, onClick, label }) => (
-  <button onClick={onClick} className={`h-full text-[10px] font-bold uppercase tracking-widest px-6 border-b-2 transition-all ${active ? 'border-blue-400 text-blue-400 bg-blue-400/5' : 'border-transparent text-[#555] hover:text-[#999]'}`}>
-    {label}
+// UI Components
+const SidebarItem: React.FC<{ active: boolean; onClick: () => void; label: string; icon: React.ReactNode }> = ({ active, onClick, label, icon }) => (
+  <button onClick={onClick} className={`w-full flex items-center lg:space-x-4 p-3 rounded-xl transition-all duration-300 ${active ? 'bg-[#D4AF37]/10 text-[#D4AF37] border border-[#D4AF37]/20 shadow-lg shadow-[#D4AF37]/5' : 'text-[#444] hover:bg-white/5 hover:text-[#888] border border-transparent'}`}>
+    <div className="w-5 h-5 flex items-center justify-center">{icon}</div>
+    <span className="hidden lg:block text-[10px] font-black uppercase tracking-[0.2em] truncate">{label}</span>
   </button>
 );
 
-const NavButton: React.FC<{ active: boolean; onClick: () => void; label: string; icon: string }> = ({ active, onClick, label, icon }) => (
-  <button onClick={onClick} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${active ? 'bg-white/5 text-white border border-white/10' : 'text-white/40 hover:bg-white/5 hover:text-white'}`}>
-    <span className="text-base">{icon}</span>
-    <span className="text-xs font-medium uppercase tracking-widest">{label}</span>
+const CommandItem: React.FC<{ label: string; shortcut?: string; icon: React.ReactNode; onClick?: () => void }> = ({ label, shortcut, icon, onClick }) => (
+  <button onClick={onClick} className="w-full flex items-center justify-between px-5 py-4 rounded-xl hover:bg-white/5 transition-all text-left text-[#555] hover:text-white group">
+     <div className="flex items-center space-x-5">
+        <span className="text-[#222] group-hover:text-[#D4AF37] transition-colors">{icon}</span>
+        <span className="text-[11px] font-black uppercase tracking-widest">{label}</span>
+     </div>
+     {shortcut && <span className="text-[9px] font-mono font-black text-[#222] tracking-tighter">{shortcut}</span>}
   </button>
 );
+
+const LuxuryCard: React.FC<{ title: string; desc: string; icon: React.ReactNode }> = ({ title, desc, icon }) => (
+  <div className="p-8 bg-[#080808] border border-[#151515] rounded-3xl hover:border-[#D4AF37]/30 transition-all duration-500 cursor-pointer group shadow-2xl relative overflow-hidden">
+     <div className="absolute top-0 right-0 w-24 h-24 bg-[#D4AF37]/5 rounded-full blur-2xl -mr-12 -mt-12 group-hover:bg-[#D4AF37]/10 transition-all"></div>
+     <div className="text-[#D4AF37]/40 mb-5 group-hover:text-[#D4AF37] group-hover:scale-110 transition-all duration-500">{icon}</div>
+     <h3 className="text-[11px] font-black text-white uppercase tracking-[0.2em] mb-3">{title}</h3>
+     <p className="text-[9px] text-[#444] leading-relaxed uppercase font-bold tracking-widest">{desc}</p>
+  </div>
+);
+
+const InputField: React.FC<{ label: string; type?: string; value: string; onChange: (v: string) => void; placeholder?: string }> = ({ label, type = "text", value, onChange, placeholder }) => (
+  <div>
+    <label className="text-[9px] font-black uppercase tracking-[0.3em] text-[#333] mb-3 block">{label}</label>
+    <input 
+      type={type} 
+      value={value} 
+      onChange={e => onChange(e.target.value)} 
+      className="w-full bg-black/60 border border-[#1A1A1A] rounded-xl p-4 text-[11px] font-mono focus:border-[#D4AF37]/50 focus:bg-black outline-none transition-all duration-300 text-white placeholder:text-[#222]" 
+      placeholder={placeholder} 
+    />
+  </div>
+);
+
+const Toggle: React.FC<{ label: string; active: boolean; onToggle: () => void }> = ({ label, active, onToggle }) => (
+  <button onClick={onToggle} className="flex items-center space-x-3 group">
+    <div className={`w-9 h-5 rounded-full relative transition-all duration-500 ${active ? 'bg-gold-gradient shadow-lg shadow-[#D4AF37]/20' : 'bg-[#151515]'}`}>
+       <div className={`absolute top-1 w-3 h-3 rounded-full bg-black transition-all duration-500 ${active ? 'left-5' : 'left-1'}`} />
+    </div>
+    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-[#333] group-hover:text-white transition-colors">{label}</span>
+  </button>
+);
+
+const PlaceholderView: React.FC<{ title: string; icon: React.ReactNode; desc: string }> = ({ title, icon, desc }) => (
+  <div className="h-full flex flex-col items-center justify-center p-12 text-center space-y-6">
+     <div className="text-5xl text-[#111] animate-pulse">{icon}</div>
+     <h2 className="text-2xl font-black text-white tracking-tighter uppercase">{title}</h2>
+     <p className="text-[10px] text-[#444] max-w-sm leading-relaxed uppercase font-bold tracking-[0.2em]">{desc}</p>
+     <button className="px-10 py-3 bg-[#0D0D0D] border border-[#1A1A1A] hover:border-[#D4AF37]/40 hover:text-white rounded-xl text-[9px] font-black uppercase tracking-[0.3em] text-[#333] transition-all duration-500">INITIALIZE MODULE</button>
+  </div>
+);
+
+const StatusDot: React.FC<{ active: boolean }> = ({ active }) => (
+  <div className={`w-2 h-2 rounded-full ${active ? 'bg-[#D4AF37] shadow-[0_0_12px_#D4AF37]' : 'bg-[#151515] animate-pulse'}`}></div>
+);
+
+// Icons
+const InboxIcon = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="square"><path d="M22 12h-6l-2 3h-4l-2-3H2"></path><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path></svg>;
+const TerminalIcon = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="square"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>;
+const CodeIcon = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="square"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>;
+const BrowserIcon = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="square"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>;
+const BookIcon = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="square"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>;
+const RocketIcon = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="square"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"></path><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"></path></svg>;
+const ActivityIcon = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="square"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>;
+const PuzzleIcon = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="square"><path d="M12.87 15.07l-2.09-2.09"></path><path d="M18.74 9.12l-2.09-2.09"></path></svg>;
+const BellIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="square"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path></svg>;
+const MoonIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="square"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>;
+const SearchIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="square"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>;
+const ChevronLeftIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="square"><polyline points="15 18 9 12 15 6"></polyline></svg>;
+const ChevronRightIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="square"><polyline points="9 18 15 12 9 6"></polyline></svg>;
+const RefreshIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="square"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path></svg>;
+const VideoIcon = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="square"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>;
+const UsersIcon = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="square"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>;
+const ArrowRightIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="square" className="group-hover:translate-x-1 transition-transform"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>;
 
 export default App;

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useCallback, useMemo } from 'react';
 
 /** Available transition effects for the modal appearance */
 export type ModalTransition = 'slide' | 'fade' | 'zoom' | 'fadeSlideIn';
@@ -10,70 +10,84 @@ interface NeuralModalProps {
   content: React.ReactNode;
   /** 
    * Transition style: 
-   * - 'slide': Professional vertical entry (bottom-up) with subtle scaling.
-   * - 'fade': Clean opacity-only entry.
-   * - 'zoom': Dynamic scale-focused entry with elastic overshoot.
-   * - 'fadeSlideIn': Light, rapid fade with minimal vertical movement.
+   * - 'slide': Dynamic vertical slide-up with a soft blur.
+   * - 'fade': Classic opacity transition.
+   * - 'zoom': High-impact scale-up with an elastic feel.
+   * - 'fadeSlideIn': Subtle fade with minimal vertical lift.
    */
   transition?: ModalTransition;
   footer?: React.ReactNode;
 }
 
 /** 
- * Map of transition types to their corresponding Tailwind-driven animation classes.
- * These animations are defined in index.html for high-performance hardware acceleration.
+ * Animation Configuration Map
+ * Maps the transition prop to the corresponding CSS animation classes.
  */
-const TRANSITION_MAP: Record<ModalTransition, string> = {
-  slide: 'animate-modal-slide',
-  fade: 'animate-modal-fade',
-  zoom: 'animate-modal-zoom',
-  fadeSlideIn: 'animate-modal-fade-slide-in',
+const ANIMATION_CONFIG: Record<ModalTransition, { surface: string; backdrop: string }> = {
+  slide: {
+    surface: 'animate-modal-slide',
+    backdrop: 'animate-backdrop',
+  },
+  fade: {
+    surface: 'animate-modal-fade',
+    backdrop: 'animate-backdrop',
+  },
+  zoom: {
+    surface: 'animate-modal-zoom',
+    backdrop: 'animate-backdrop',
+  },
+  fadeSlideIn: {
+    surface: 'animate-modal-fade-slide-in',
+    backdrop: 'animate-backdrop',
+  },
 };
 
 /**
  * NeuralModal - A studio-grade accessible modal component.
  * 
  * Features:
- * - WAI-ARIA 1.2 Compliance: Uses role="dialog" and aria-modal="true".
- * - Focus Management: Captures initial focus and restores it on close.
- * - Focus Trap: Prevents Tab key from leaving the modal boundaries.
- * - Keyboard Support: Closes on ESC key.
- * - Scroll Lock: Prevents background scrolling when active.
- * - High-performance CSS transitions via the 'transition' prop.
+ * - WAI-ARIA 1.2 Compliant (role="dialog", aria-modal="true").
+ * - Dynamic Transition logic for high-end UI/UX.
+ * - Robust Focus Trap & Focus Restoration.
+ * - Optimized for hardware-accelerated animations.
  */
 export const NeuralModal: React.FC<NeuralModalProps> = ({
   isOpen,
   onClose,
   title,
   content,
-  transition = 'fadeSlideIn',
+  transition = 'slide',
   footer,
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
-  const previousFocus = useRef<HTMLElement | null>(null);
+  const triggerElementRef = useRef<HTMLElement | null>(null);
+
+  // Memoize active animation classes based on the transition prop
+  const activeAnimations = useMemo(() => ANIMATION_CONFIG[transition], [transition]);
 
   const handleEscape = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Escape') onClose();
   }, [onClose]);
 
-  // Focus trap logic
   const handleTabKey = useCallback((e: KeyboardEvent) => {
     if (e.key !== 'Tab' || !modalRef.current) return;
 
-    const focusableElements = modalRef.current.querySelectorAll(
+    const focusableNodes = modalRef.current.querySelectorAll(
       'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
     );
-    const firstElement = focusableElements[0] as HTMLElement;
-    const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
+    if (focusableNodes.length === 0) return;
+
+    const firstNode = focusableNodes[0] as HTMLElement;
+    const lastNode = focusableNodes[focusableNodes.length - 1] as HTMLElement;
 
     if (e.shiftKey) {
-      if (document.activeElement === firstElement) {
-        lastElement.focus();
+      if (document.activeElement === firstNode) {
+        lastNode.focus();
         e.preventDefault();
       }
     } else {
-      if (document.activeElement === lastElement) {
-        firstElement.focus();
+      if (document.activeElement === lastNode) {
+        firstNode.focus();
         e.preventDefault();
       }
     }
@@ -81,18 +95,17 @@ export const NeuralModal: React.FC<NeuralModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      // Save current focus to restore it later
-      previousFocus.current = document.activeElement as HTMLElement;
+      // Store current focus for restoration on close
+      triggerElementRef.current = document.activeElement as HTMLElement;
       
-      // Lock scrolling on the main content
+      // Lock scrolling
       document.body.style.overflow = 'hidden';
       
-      // Event Listeners for accessibility
       window.addEventListener('keydown', handleEscape);
       window.addEventListener('keydown', handleTabKey);
       
-      // Shift focus to the modal container (aria-labelledby will handle identifying it)
-      const focusTimeout = setTimeout(() => {
+      // Focus the modal after a short delay to allow the DOM to ready
+      const focusTimer = setTimeout(() => {
         modalRef.current?.focus();
       }, 50);
 
@@ -100,74 +113,68 @@ export const NeuralModal: React.FC<NeuralModalProps> = ({
         document.body.style.overflow = '';
         window.removeEventListener('keydown', handleEscape);
         window.removeEventListener('keydown', handleTabKey);
-        clearTimeout(focusTimeout);
-        // Restore focus to the element that opened the modal
-        previousFocus.current?.focus();
+        clearTimeout(focusTimer);
+        // Restore focus
+        triggerElementRef.current?.focus();
       };
     }
   }, [isOpen, handleEscape, handleTabKey]);
 
   if (!isOpen) return null;
 
-  // Determine which animation class to apply based on the transition prop
-  const animationClass = TRANSITION_MAP[transition];
-
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 overflow-hidden outline-none"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-12 overflow-hidden"
       role="presentation"
     >
-      {/* Backdrop - Frosted glass effect with fade animation */}
+      {/* Dynamic Backdrop */}
       <div
-        className="fixed inset-0 bg-black/85 backdrop-blur-sm animate-backdrop cursor-pointer"
+        className={`fixed inset-0 bg-black/95 backdrop-blur-2xl cursor-pointer ${activeAnimations.backdrop}`}
         onClick={onClose}
         aria-hidden="true"
       />
 
-      {/* Modal Container Surface */}
+      {/* Modal Surface Container */}
       <div
         ref={modalRef}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="neural-modal-header"
+        aria-labelledby="neural-modal-title"
         tabIndex={-1}
-        className={`relative w-full max-w-lg bg-[#141414] border border-[#303030] rounded-2xl shadow-2xl flex flex-col focus:outline-none ${animationClass}`}
+        className={`relative w-full max-w-xl bg-[#080808] border border-[#1A1A1A] rounded-[2.5rem] shadow-[0_0_120px_rgba(0,0,0,1)] flex flex-col focus:outline-none overflow-hidden gold-glow border-gold-subtle ${activeAnimations.surface}`}
       >
-        {/* Header Section */}
-        <header className="flex items-center justify-between px-6 py-4 border-b border-[#262626]">
+        <header className="flex items-center justify-between px-10 py-7 border-b border-[#1A1A1A] bg-black/40">
           <h2
-            id="neural-modal-header"
-            className="text-[10px] font-bold text-white uppercase tracking-[0.2em] opacity-90"
+            id="neural-modal-title"
+            className="text-[10px] font-black text-[#D4AF37] uppercase tracking-[0.5em] opacity-90"
           >
             {title}
           </h2>
           <button
             onClick={onClose}
-            className="text-[#9CA3AF] hover:text-white transition-colors p-2 rounded-full hover:bg-white/5 outline-none focus:ring-1 focus:ring-blue-500"
-            aria-label="Close modal"
+            className="text-[#444] hover:text-[#D4AF37] transition-all p-2.5 rounded-2xl hover:bg-white/5 outline-none focus:ring-1 focus:ring-[#D4AF37]/50"
+            aria-label="Close dialog"
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="square">
               <line x1="18" y1="6" x2="6" y2="18"></line>
               <line x1="6" y1="6" x2="18" y2="18"></line>
             </svg>
           </button>
         </header>
 
-        {/* Content Body - Thematic custom scrollbar */}
-        <div className="px-6 py-8 text-sm text-[#D1D5DB] leading-relaxed max-h-[60vh] overflow-y-auto custom-scrollbar">
+        <div className="px-10 py-12 text-[11px] font-bold text-[#999] leading-relaxed max-h-[60vh] overflow-y-auto custom-scrollbar uppercase tracking-[0.15em]">
           {content}
         </div>
 
-        {/* Footer Area - Adaptive footer for actions */}
-        <footer className="px-6 py-4 border-t border-[#262626] bg-[#0E0E0E] rounded-b-2xl flex justify-end items-center gap-3">
+        <footer className="px-10 py-8 border-t border-[#1A1A1A] bg-black/30 flex justify-end items-center gap-5">
           {footer ? (
             footer
           ) : (
             <button
               onClick={onClose}
-              className="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold uppercase tracking-widest rounded-full transition-all shadow-lg active:scale-95 focus:ring-2 focus:ring-blue-500/50 outline-none"
+              className="px-12 py-3.5 bg-gold-gradient text-black text-[10px] font-black uppercase tracking-[0.4em] rounded-2xl transition-all shadow-2xl active:scale-95 hover:brightness-110 outline-none"
             >
-              Close
+              Acknowledge
             </button>
           )}
         </footer>

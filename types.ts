@@ -53,8 +53,12 @@ export interface LibraryItem {
 }
 
 export enum TabType {
+  INBOX = 'INBOX',
   WORKSPACE = 'WORKSPACE',
   EDITOR = 'EDITOR',
+  KNOWLEDGE = 'KNOWLEDGE',
+  BROWSER = 'BROWSER',
+  AGENT_MANAGER = 'AGENT_MANAGER',
   LOGS = 'LOGS',
   DEPLOY = 'DEPLOY',
   COLAB = 'COLAB',

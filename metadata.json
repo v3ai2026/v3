@@ -1,9 +1,10 @@
 {
-  "name": "IntelliBuild AI Compiler",
-  "description": "A high-performance intelligent compiler that generates React components from natural language and deploys them directly to Vercel.",
+  "name": "Studio Agent OS",
+  "description": "Professional-grade AI Agent Workspace with integrated deployment, knowledge management, and browser orchestration.",
   "requestFramePermissions": [
     "microphone",
     "geolocation",
-    "camera"
+    "camera",
+    "display-capture"
   ]
 }
