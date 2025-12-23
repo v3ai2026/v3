@@ -1,17 +1,75 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IntelliBuild AI Compiler</title>
+    <title>IntelliBuild Studio</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
-        body { margin: 0; padding: 0; overflow: hidden; background-color: #0f172a; color: #f8fafc; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
-        ::-webkit-scrollbar-track { background: #1e293b; }
-        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+        body { margin: 0; padding: 0; overflow: hidden; background-color: #0E0E0E; color: #E3E3E3; font-family: 'Inter', sans-serif; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #303030; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #4B5563; }
+        
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 12px; height: 12px; background: #3B82F6; border-radius: 50%; cursor: pointer; border: 2px solid #0E0E0E; }
+
+        /* Neural Transitions */
+        @keyframes modal-zoom {
+            0% { opacity: 0; transform: scale(0.8) translateY(20px); }
+            100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        @keyframes modal-slide {
+            from { 
+                opacity: 0; 
+                transform: translateY(100px) scale(0.96); 
+                filter: blur(4px);
+            }
+            to { 
+                opacity: 1; 
+                transform: translateY(0) scale(1); 
+                filter: blur(0);
+            }
+        }
+        @keyframes modal-fade {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes modal-fade-slide-in {
+            0% { 
+                opacity: 0; 
+                transform: translateY(10px) scale(0.995); 
+            }
+            100% { 
+                opacity: 1; 
+                transform: translateY(0) scale(1); 
+            }
+        }
+        @keyframes backdrop-fade {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* Utility Animation Classes */
+        .animate-modal-zoom { animation: modal-zoom 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        .animate-modal-slide { animation: modal-slide 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+        .animate-modal-fade { animation: modal-fade 0.3s ease-out forwards; }
+        .animate-modal-fade-slide-in { animation: modal-fade-slide-in 0.35s cubic-bezier(0.23, 1, 0.32, 1) forwards; }
+        .animate-backdrop { animation: backdrop-fade 0.5s ease-out forwards; }
+
+        .glass-panel {
+            background: rgba(26, 26, 26, 0.6);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #262626; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #303030; }
+
+        /* Transitions */
+        .transition-all { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
     </style>
 <script type="importmap">
 {

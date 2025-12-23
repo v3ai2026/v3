@@ -2,24 +2,38 @@
 export interface GeneratedFile {
   path: string;
   content: string;
+  type: 'frontend' | 'backend' | 'test' | 'config';
 }
 
 export interface GenerationResult {
-  componentName: string;
+  projectName: string;
   files: GeneratedFile[];
-  metadata?: {
-    complexity: 'Low' | 'Medium' | 'High';
-    techStack: string[];
-    architecturePattern: string;
-  };
+  agentLogs: {
+    agent: string;
+    action: string;
+    status: 'complete' | 'working';
+  }[];
 }
 
-export interface MediaItem {
+export interface ModelConfig {
+  temperature: number;
+  topP: number;
+  topK: number;
+  thinkingBudget: number;
+  systemInstruction: string;
+}
+
+export type ExtensionCategory = 'COMPILER' | 'INTERFACE' | 'PROTOCOL';
+
+export interface Extension {
   id: string;
-  type: 'image' | 'video';
-  url: string;
-  prompt: string;
-  config?: any;
+  name: string;
+  description: string;
+  category: ExtensionCategory;
+  version: string;
+  author: string;
+  enabled: boolean;
+  manifest: string;
 }
 
 export interface DeploymentStatus {
@@ -33,24 +47,17 @@ export interface LibraryItem {
   id: string;
   name: string;
   description: string;
-  type: 'template' | 'component';
+  type: 'template' | 'component' | 'api';
   previewColor: string;
   codeSnippet?: string;
 }
 
-export interface ChatMessage {
-  role: 'user' | 'assistant';
-  content: string;
-  files?: GeneratedFile[];
-  media?: MediaItem;
-  groundingLinks?: { uri: string; title: string }[];
-  isThinking?: boolean;
-}
-
 export enum TabType {
+  WORKSPACE = 'WORKSPACE',
   EDITOR = 'EDITOR',
-  PREVIEW = 'PREVIEW',
-  MEDIA = 'MEDIA',
-  AGENT = 'AGENT',
-  DEPLOY = 'DEPLOY'
+  LOGS = 'LOGS',
+  DEPLOY = 'DEPLOY',
+  COLAB = 'COLAB',
+  PLUGINS = 'PLUGINS',
+  GCS = 'GCS'
 }

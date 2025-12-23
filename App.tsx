@@ -1,431 +1,636 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import Editor from '@monaco-editor/react';
-import { GoogleGenAI, Modality, LiveServerMessage } from '@google/genai';
-import { generateFrontendProject, generateImagePro, generateVideoVeo, groundedChat, editImage, generateSpeech } from './services/geminiService';
-import { deployToVercel, checkDeploymentStatus } from './services/vercelService';
-import { TEMPLATE_LIBRARY, COMPONENT_LIBRARY } from './services/library';
-import { ChatMessage, GeneratedFile, TabType, DeploymentStatus, MediaItem } from './types';
+import { generateFullStackProject, convertToColabNotebook } from './services/geminiService';
+import { deployToVercel } from './services/vercelService';
+import { GitHubService } from './services/githubService';
+import { GCSService } from './services/gcsService';
+import { COMPONENT_LIBRARY } from './services/library';
+import { NeuralModal, ModalTransition } from './components/NeuralModal';
+import { PLUGIN_REGISTRY, getActiveInstructions } from './services/extensionService';
+import { GeneratedFile, TabType, DeploymentStatus, ModelConfig, Extension } from './types';
+
+const INITIAL_SYSTEM = `你是一个顶级进化级全栈 AI 编排 system（IntelliBuild Studio Core）。`;
 
 const App: React.FC = () => {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [modelConfig, setModelConfig] = useState<ModelConfig>({
+    temperature: 0.7,
+    topP: 0.95,
+    topK: 40,
+    thinkingBudget: 0,
+    systemInstruction: INITIAL_SYSTEM
+  });
+
+  const [extensions, setExtensions] = useState<Extension[]>(PLUGIN_REGISTRY);
+  const [modalTransition, setModalTransition] = useState<ModalTransition>('slide');
   const [input, setInput] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [currentFiles, setCurrentFiles] = useState<GeneratedFile[]>([]);
   const [selectedFileIndex, setSelectedFileIndex] = useState(0);
-  const [activeTab, setActiveTab] = useState<TabType>(TabType.EDITOR);
+  const [activeTab, setActiveTab] = useState<TabType>(TabType.WORKSPACE);
+  const [agentLogs, setAgentLogs] = useState<any[]>([]);
+  
+  // Vercel Credentials
   const [vercelToken, setVercelToken] = useState('');
-  const [projectName, setProjectName] = useState('ib-automated-deploy');
+  
+  // GitHub Credentials
+  const [githubToken, setGithubToken] = useState('');
+  const [githubOwner, setGithubOwner] = useState('');
+  const [githubRepoName, setGithubRepoName] = useState('');
+  const [githubIsPrivate, setGithubIsPrivate] = useState(true);
+  const [githubInitReadme, setGithubInitReadme] = useState(true);
+  const [githubStatus, setGithubStatus] = useState<string>('');
+  const [githubRepoUrl, setGithubRepoUrl] = useState<string | null>(null);
+
+  // GCS Credentials
+  const [gcsToken, setGcsToken] = useState('');
+  const [gcsProjectId, setGcsProjectId] = useState('');
+  const [gcsBucket, setGcsBucket] = useState('');
+  const [gcsBucketsList, setGcsBucketsList] = useState<any[]>([]);
+  const [gcsStatus, setGcsStatus] = useState<string>('');
+
+  const [projectName, setProjectName] = useState('studio-export-' + Math.floor(Math.random() * 1000));
   const [deployment, setDeployment] = useState<DeploymentStatus | null>(null);
-  const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
-  const [thinkingEnabled, setThinkingEnabled] = useState(false);
-  const [groundingEnabled, setGroundingEnabled] = useState(false);
-  const [activeSidebarTab, setActiveSidebarTab] = useState<'chat' | 'library' | 'media'>('chat');
-  const [selectedFramework, setSelectedFramework] = useState('Next.js');
+  const [showInfoModal, setShowInfoModal] = useState(false);
 
-  // Media Settings
-  const [imgSize, setImgSize] = useState<'1K' | '2K' | '4K'>('1K');
-  const [imgAspect, setImgAspect] = useState('16:9');
-  const [vidAspect, setVidAspect] = useState<'16:9' | '9:16'>('16:9');
+  const toggleExtension = (id: string) => {
+    setExtensions(prev => prev.map(ext => 
+      ext.id === id ? { ...ext, enabled: !ext.enabled } : ext
+    ));
+  };
 
-  // Live API / Audio References
-  const [isLiveActive, setIsLiveActive] = useState(false);
-  const liveSessionRef = useRef<any>(null);
-  const nextStartTimeRef = useRef(0);
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [messages, activeSidebarTab]);
-
-  const handleCommand = async (explicitPrompt?: string) => {
-    const prompt = explicitPrompt || input;
-    if (!prompt.trim()) return;
-    setInput('');
+  const handleRun = async () => {
+    if (!input.trim()) return;
     setIsGenerating(true);
-    setMessages(prev => [...prev, { role: 'user', content: prompt }]);
+    setAgentLogs([]);
+    
+    const pluginAugmentation = getActiveInstructions(extensions);
+    const augmentedConfig = {
+      ...modelConfig,
+      systemInstruction: `${modelConfig.systemInstruction}\n\nACTIVE PLUGINS:\n${pluginAugmentation}`
+    };
 
     try {
-      let finalResponse = "";
-      let groundingLinks = [];
-
-      if (groundingEnabled) {
-        const result = await groundedChat(prompt, ['search', 'maps']);
-        finalResponse = result.text;
-        groundingLinks = result.links;
-      } else {
-        const result = await generateFrontendProject(`[Framework: ${selectedFramework}] ${prompt}`, thinkingEnabled);
-        if (result.files && result.files.length > 0) {
-          setCurrentFiles(result.files);
-          setSelectedFileIndex(0);
-          setActiveTab(TabType.EDITOR);
-          finalResponse = `Synthesis complete: ${result.componentName}. All architectural nodes verified.`;
-        } else {
-          finalResponse = "Neural link established. Response synthesized.";
-        }
-      }
-
-      setMessages(prev => [...prev, { 
-        role: 'assistant', 
-        content: finalResponse,
-        groundingLinks: groundingLinks.length > 0 ? groundingLinks : undefined
-      }]);
+      const result = await generateFullStackProject(input, augmentedConfig, COMPONENT_LIBRARY);
+      setCurrentFiles(result.files);
+      setAgentLogs(result.agentLogs);
+      setProjectName(result.projectName || projectName);
+      setGithubRepoName(result.projectName || projectName);
+      setSelectedFileIndex(0);
+      setActiveTab(TabType.EDITOR);
     } catch (e: any) {
-      setMessages(prev => [...prev, { role: 'assistant', content: `Neural Drift Error: ${e.message}` }]);
+      alert("Studio Protocol Error: " + e.message);
     } finally {
       setIsGenerating(false);
     }
   };
 
-  const handleMediaGen = async (type: 'image' | 'video' | 'edit') => {
-    if (!input.trim() && type !== 'edit') return;
-    setIsGenerating(true);
-    try {
-      let url = "";
-      if (type === 'image') {
-        url = await generateImagePro(input, imgAspect, imgSize);
-      } else if (type === 'video') {
-        url = await generateVideoVeo(input, vidAspect);
-      } else if (type === 'edit' && mediaItems.length > 0) {
-        const lastImg = mediaItems.find(m => m.type === 'image')?.url;
-        if (lastImg) {
-          url = await editImage(input, lastImg.split(',')[1]);
-        }
-      }
-      
-      if (url) {
-        const item: MediaItem = { id: Date.now().toString(), type: type === 'edit' ? 'image' : type as any, url, prompt: input };
-        setMediaItems(prev => [item, ...prev]);
-        setActiveTab(TabType.MEDIA);
-      }
-    } catch (e) { console.error(e); } finally { setIsGenerating(false); }
+  const handleCopyCode = () => {
+    const code = currentFiles[selectedFileIndex]?.content;
+    if (code) {
+      navigator.clipboard.writeText(code);
+      alert('Code copied to clipboard!');
+    }
   };
 
-  const playTTS = async (text: string) => {
-    try {
-      const base64Audio = await generateSpeech(text);
-      if (base64Audio) {
-        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-        const bytes = Uint8Array.from(atob(base64Audio), c => c.charCodeAt(0));
-        const dataInt16 = new Int16Array(bytes.buffer);
-        const buffer = ctx.createBuffer(1, dataInt16.length, 24000);
-        const channelData = buffer.getChannelData(0);
-        for (let i = 0; i < dataInt16.length; i++) channelData[i] = dataInt16[i] / 32768.0;
-        const source = ctx.createBufferSource();
-        source.buffer = buffer;
-        source.connect(ctx.destination);
-        source.start();
-      }
-    } catch (e) { console.error("TTS Error:", e); }
-  };
-
-  const toggleLiveAPI = async () => {
-    if (isLiveActive) {
-      liveSessionRef.current?.close();
-      setIsLiveActive(false);
-      return;
+  const handleGitHubPush = async () => {
+    if (!githubToken || !githubRepoName || !githubOwner) {
+      return alert('GitHub Token, Owner, and Repo Name are required');
+    }
+    if (currentFiles.length === 0) {
+      return alert('No code generated yet to push.');
     }
 
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
-    const outputCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-    const inputCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
-
-    const sessionPromise = ai.live.connect({
-      model: 'gemini-2.5-flash-native-audio-preview-09-2025',
-      config: {
-        responseModalities: [Modality.AUDIO],
-        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } } },
-        systemInstruction: "You are the IntelliBuild Voice Core. Respond concisely to architectural queries."
-      },
-      callbacks: {
-        onopen: () => {
-          setIsLiveActive(true);
-          navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-            const source = inputCtx.createMediaStreamSource(stream);
-            const processor = inputCtx.createScriptProcessor(4096, 1, 1);
-            processor.onaudioprocess = (e) => {
-              const inputData = e.inputBuffer.getChannelData(0);
-              const int16 = new Int16Array(inputData.length);
-              for (let i = 0; i < inputData.length; i++) int16[i] = inputData[i] * 32768;
-              const base64 = btoa(String.fromCharCode(...new Uint8Array(int16.buffer)));
-              sessionPromise.then(s => s.sendRealtimeInput({ media: { data: base64, mimeType: 'audio/pcm;rate=16000' } }));
-            };
-            source.connect(processor);
-            processor.connect(inputCtx.destination);
-          });
-        },
-        onmessage: async (msg: LiveServerMessage) => {
-          const audio = msg.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
-          if (audio) {
-            const bytes = Uint8Array.from(atob(audio), c => c.charCodeAt(0));
-            const dataInt16 = new Int16Array(bytes.buffer);
-            const buffer = outputCtx.createBuffer(1, dataInt16.length, 24000);
-            const channelData = buffer.getChannelData(0);
-            for (let i = 0; i < dataInt16.length; i++) channelData[i] = dataInt16[i] / 32768.0;
-            const source = outputCtx.createBufferSource();
-            source.buffer = buffer;
-            source.connect(outputCtx.destination);
-            nextStartTimeRef.current = Math.max(nextStartTimeRef.current, outputCtx.currentTime);
-            source.start(nextStartTimeRef.current);
-            nextStartTimeRef.current += buffer.duration;
-          }
-        },
-        onclose: () => setIsLiveActive(false),
-        onerror: () => setIsLiveActive(false)
+    setIsGenerating(true);
+    setGithubStatus('Initializing GitHub Handshake...');
+    
+    try {
+      const service = new GitHubService(githubToken);
+      
+      setGithubStatus(`Creating repository: ${githubRepoName}...`);
+      await service.createRepository(githubRepoName, githubIsPrivate);
+      
+      const filesToPush = [...currentFiles];
+      if (githubInitReadme) {
+        filesToPush.push({
+          path: 'README.md',
+          content: `# ${githubRepoName}\n\nGenerated by IntelliBuild Studio.\n\n## Project Description\n${input}`,
+          type: 'config'
+        });
       }
-    });
-    liveSessionRef.current = await sessionPromise;
+
+      setGithubStatus(`Pushing ${filesToPush.length} files to master...`);
+      await service.initializeAndPush(githubOwner, githubRepoName, filesToPush);
+      
+      const url = `https://github.com/${githubOwner}/${githubRepoName}`;
+      setGithubRepoUrl(url);
+      setGithubStatus('Push Successful!');
+    } catch (err: any) {
+      setGithubStatus(`Error: ${err.message}`);
+      alert(err.message);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleExportColab = () => {
+    if (currentFiles.length === 0) {
+      alert("No files to export. Please build a project first.");
+      return;
+    }
+    const notebookJson = convertToColabNotebook(currentFiles, projectName);
+    const blob = new Blob([notebookJson], { type: 'application/x-ipynb+json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${projectName}.ipynb`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleGCSFetchBuckets = async () => {
+    if (!gcsToken || !gcsProjectId) return alert('Token and Project ID required');
+    try {
+      setGcsStatus('Fetching buckets...');
+      const service = new GCSService(gcsToken);
+      const buckets = await service.listBuckets(gcsProjectId);
+      setGcsBucketsList(buckets);
+      setGcsStatus('Buckets loaded.');
+    } catch (err: any) {
+      alert(err.message);
+      setGcsStatus('Fetch failed.');
+    }
+  };
+
+  const handleGCSUpload = async () => {
+    if (!gcsToken || !gcsBucket || currentFiles.length === 0) return alert('Token, Bucket, and Files required');
+    try {
+      setIsGenerating(true);
+      setGcsStatus('Uploading files...');
+      const service = new GCSService(gcsToken);
+      await service.uploadProject(gcsBucket, currentFiles, projectName);
+      setGcsStatus('Upload successful!');
+    } catch (err: any) {
+      alert(err.message);
+      setGcsStatus('Upload failed.');
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   return (
-    <div className="flex h-screen bg-[#020202] text-slate-300 font-sans selection:bg-white/10 overflow-hidden">
-      {/* Sidebar: Intelligent Hub */}
-      <div className="w-[420px] border-r border-white/5 flex flex-col bg-[#050505] shadow-2xl relative z-20">
-        <header className="p-8 border-b border-white/5 space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center font-black text-black shadow-lg">IB</div>
-              <div>
-                <h1 className="text-xl font-black text-white tracking-tighter uppercase italic">IntelliBuild</h1>
-                <div className="text-[9px] text-slate-500 uppercase font-black tracking-widest">Compiler v9.0 Neural</div>
-              </div>
-            </div>
-            <button onClick={toggleLiveAPI} className={`w-8 h-8 rounded-full border ${isLiveActive ? 'bg-emerald-500 border-emerald-400 animate-pulse' : 'border-white/10 hover:bg-white/5'} flex items-center justify-center transition-all`}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-            </button>
+    <div className="flex h-screen bg-[#0E0E0E] text-[#E3E3E3] font-sans overflow-hidden">
+      {/* Sidebar navigation */}
+      <aside className="w-64 border-r border-[#303030] flex flex-col bg-[#111111]">
+        <div className="p-4 border-b border-[#303030] flex items-center justify-between">
+          <span className="font-bold text-xs tracking-widest text-blue-400">INTELLIBUILD STUDIO</span>
+        </div>
+        <div className="flex-1 overflow-y-auto p-2">
+          <div className="space-y-1">
+            <div className="px-3 py-2 text-[10px] font-bold text-[#555] uppercase tracking-tighter">Workflow</div>
+            <NavButton active={activeTab === TabType.WORKSPACE} onClick={() => setActiveTab(TabType.WORKSPACE)} label="Compiler" icon="⚡" />
+            <NavButton active={activeTab === TabType.EDITOR} onClick={() => setActiveTab(TabType.EDITOR)} label="Source Code" icon="📁" />
+            <NavButton active={activeTab === TabType.PLUGINS} onClick={() => setActiveTab(TabType.PLUGINS)} label="Plugin Depot" icon="🧩" />
+            <NavButton active={activeTab === TabType.DEPLOY} onClick={() => setActiveTab(TabType.DEPLOY)} label="Deployment" icon="🚀" />
+            <NavButton active={activeTab === TabType.GCS} onClick={() => setActiveTab(TabType.GCS)} label="Cloud Storage" icon="☁️" />
+            
+            <div className="pt-4 px-3 py-2 text-[10px] font-bold text-[#555] uppercase tracking-tighter">Tools</div>
+            <NavButton active={activeTab === TabType.COLAB} onClick={() => setActiveTab(TabType.COLAB)} label="Colab Lab" icon="📙" />
+            <NavButton active={false} onClick={() => setShowInfoModal(true)} label="Studio Info" icon="ⓘ" />
           </div>
-          
-          <div className="flex bg-white/[0.03] p-1 rounded-xl border border-white/5 text-[10px] font-black uppercase">
-            {['chat', 'library', 'media'].map(tab => (
-              <button 
-                key={tab}
-                onClick={() => setActiveSidebarTab(tab as any)} 
-                className={`flex-1 py-2 rounded-lg transition-all ${activeSidebarTab === tab ? 'bg-white text-black shadow-md' : 'text-slate-500 hover:text-slate-300'}`}
-              >
-                {tab}
-              </button>
-            ))}
+        </div>
+        <div className="p-4 border-t border-[#303030]">
+          <div className="flex items-center space-x-3 text-[10px] opacity-60 font-mono">
+            <div className={`w-1.5 h-1.5 rounded-full ${isGenerating ? 'bg-orange-500 animate-pulse' : 'bg-green-500'}`}></div>
+            <span>{isGenerating ? 'PROCESSING' : 'STABLE'}</span>
+          </div>
+        </div>
+      </aside>
+
+      {/* Primary Workspace */}
+      <main className="flex-1 flex flex-col min-w-0">
+        <header className="h-14 border-b border-[#303030] flex items-center px-6 justify-between bg-[#111111]">
+          <div className="flex space-x-8 h-full">
+            <TabButton active={activeTab === TabType.WORKSPACE} onClick={() => setActiveTab(TabType.WORKSPACE)} label="Build" />
+            <TabButton active={activeTab === TabType.EDITOR} onClick={() => setActiveTab(TabType.EDITOR)} label="Inspect" />
+            <TabButton active={activeTab === TabType.PLUGINS} onClick={() => setActiveTab(TabType.PLUGINS)} label="Depot" />
+            <TabButton active={activeTab === TabType.LOGS} onClick={() => setActiveTab(TabType.LOGS)} label="Telemetry" />
+          </div>
+          <div className="flex items-center space-x-4">
+             {activeTab === TabType.WORKSPACE && (
+               <button onClick={handleRun} disabled={isGenerating} className="px-6 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold text-xs rounded-full transition-all shadow-[0_0_15px_rgba(37,99,235,0.3)] active:scale-95">
+                  {isGenerating ? 'GENERATING...' : 'INITIATE COMPILATION'}
+               </button>
+             )}
           </div>
         </header>
 
-        <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-none">
-          {activeSidebarTab === 'chat' && (
-            <div className="space-y-4">
-              {messages.length === 0 && (
-                <div className="p-10 text-center space-y-4 opacity-40">
-                  <div className="text-4xl">◇</div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.4em]">Neural Core Ready</p>
-                </div>
-              )}
-              {messages.map((m, i) => (
-                <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`p-5 rounded-[24px] text-xs leading-relaxed max-w-[90%] ${m.role === 'user' ? 'bg-white text-black font-medium shadow-xl' : 'bg-white/5 border border-white/10 group'}`}>
-                    {m.content}
-                    {m.role === 'assistant' && (
-                      <button onClick={() => playTTS(m.content)} className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity text-white/40 hover:text-white">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
-                      </button>
-                    )}
-                    {m.groundingLinks && (
-                      <div className="mt-3 pt-3 border-t border-white/5 space-y-1">
-                        {m.groundingLinks.map((l, j) => (
-                          <a key={j} href={l.uri} target="_blank" className="block text-[9px] text-indigo-400 hover:underline">↗ {l.title}</a>
-                        ))}
-                      </div>
-                    )}
+        <div className="flex-1 relative flex flex-col bg-[#0F0F0F] overflow-hidden">
+          {activeTab === TabType.WORKSPACE && (
+            <div className="h-full flex flex-col">
+               <div className="p-6 border-b border-[#303030] bg-[#111111]/50">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Protocol Instruction</label>
                   </div>
-                </div>
-              ))}
+                  <textarea 
+                    value={modelConfig.systemInstruction}
+                    onChange={e => setModelConfig({...modelConfig, systemInstruction: e.target.value})}
+                    className="w-full bg-black/40 border border-[#303030] rounded-xl p-4 text-sm focus:border-blue-500 outline-none min-h-[100px] resize-none font-mono leading-relaxed"
+                  />
+               </div>
+               <div className="flex-1 p-8 flex flex-col">
+                  <div className="flex-1 flex flex-col glass-panel rounded-2xl p-6 border border-white/5 shadow-inner">
+                    <label className="block text-[10px] font-bold text-[#9CA3AF] uppercase mb-4 tracking-widest">Compiler Prompt</label>
+                    <textarea 
+                      value={input}
+                      onChange={e => setInput(e.target.value)}
+                      className="flex-1 w-full bg-transparent text-2xl font-extralight focus:outline-none resize-none leading-relaxed placeholder:text-white/10"
+                      placeholder="e.g., Build a real-time data visualization dashboard..."
+                    />
+                  </div>
+               </div>
             </div>
           )}
 
-          {activeSidebarTab === 'library' && (
-            <div className="space-y-6 animate-in fade-in duration-500">
-              <section className="space-y-3">
-                <h3 className="text-[10px] font-black uppercase text-white tracking-[0.3em]">Neural Blocks</h3>
-                {COMPONENT_LIBRARY.map(c => (
-                  <button key={c.id} onClick={() => handleCommand(`Create a reusable React component for a ${c.name}: ${c.description}. Ensure it supports props for dynamic data and Tailwind styling.`)} className="w-full text-left p-5 bg-white/[0.03] border border-white/5 rounded-[24px] hover:bg-white/[0.05] transition-all group relative overflow-hidden">
-                    <div className="relative z-10 flex justify-between items-start">
-                      <div className="space-y-1">
-                        <span className="text-xs font-black text-slate-200 uppercase tracking-tight">{c.name}</span>
-                        <p className="text-[10px] text-slate-500 leading-tight font-medium">{c.description}</p>
+          {activeTab === TabType.PLUGINS && (
+            <div className="h-full p-12 bg-[#0E0E0E] overflow-y-auto custom-scrollbar">
+              <div className="max-w-5xl mx-auto space-y-10">
+                <header>
+                  <h1 className="text-3xl font-extrabold text-white tracking-tight">Plugin Depot</h1>
+                  <p className="text-white/40 mt-2">Dynamic sub-systems for the Studio inference engine.</p>
+                </header>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {extensions.map(ext => (
+                    <div key={ext.id} className={`p-6 border rounded-2xl transition-all duration-300 ${ext.enabled ? 'bg-blue-600/5 border-blue-500/30' : 'bg-white/2 border-white/5 opacity-60'}`}>
+                      <div className="flex justify-between items-start mb-4">
+                        <div className="space-y-1">
+                          <span className={`text-[9px] font-bold px-2 py-0.5 rounded uppercase ${ext.enabled ? 'bg-blue-400 text-blue-900' : 'bg-white/10 text-white/50'}`}>
+                            {ext.category}
+                          </span>
+                          <h3 className="text-lg font-bold text-white">{ext.name}</h3>
+                          <p className="text-xs text-white/50">{ext.description}</p>
+                        </div>
+                        <button 
+                          onClick={() => toggleExtension(ext.id)}
+                          className={`w-12 h-6 rounded-full relative transition-all duration-500 ${ext.enabled ? 'bg-blue-500' : 'bg-[#303030]'}`}
+                        >
+                          <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all duration-300 ${ext.enabled ? 'left-7' : 'left-1'}`} />
+                        </button>
                       </div>
-                      <div className={`w-2 h-2 rounded-full bg-gradient-to-br ${c.previewColor} mt-1`}></div>
                     </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === TabType.EDITOR && (
+            <div className="h-full flex">
+              <div className="w-56 border-r border-[#303030] bg-[#111111] overflow-y-auto">
+                <div className="p-4 border-b border-[#303030] text-[10px] font-bold text-[#555] uppercase tracking-tighter">Project Files</div>
+                {currentFiles.map((f, i) => (
+                  <button key={i} onClick={() => setSelectedFileIndex(i)} className={`w-full text-left px-4 py-3 text-xs truncate transition-all ${selectedFileIndex === i ? 'bg-[#1C1C1C] text-blue-400 border-r-2 border-blue-400' : 'text-[#888] hover:bg-[#161616]'}`}>
+                    {f.path.split('/').pop()}
                   </button>
                 ))}
-              </section>
+              </div>
+              <div className="flex-1 relative group">
+                <Editor height="100%" theme="vs-dark" defaultLanguage="typescript" value={currentFiles[selectedFileIndex]?.content || ""} options={{ fontSize: 13, minimap: { enabled: false } }} />
+                <div className="absolute top-4 right-8 opacity-0 group-hover:opacity-100 transition-opacity">
+                   <button onClick={handleCopyCode} className="px-3 py-1.5 bg-black/50 backdrop-blur border border-white/10 rounded-md text-[10px] font-bold text-white/60 hover:text-white uppercase tracking-widest flex items-center space-x-2">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                      <span>Copy Snippet</span>
+                   </button>
+                </div>
+              </div>
             </div>
           )}
 
-          {activeSidebarTab === 'media' && (
-            <div className="grid grid-cols-2 gap-4 animate-in fade-in duration-500">
-               {mediaItems.map(m => (
-                 <div key={m.id} className="relative aspect-square bg-black rounded-3xl border border-white/5 overflow-hidden group">
-                   {m.type === 'image' ? <img src={m.url} className="w-full h-full object-cover" /> : <video src={m.url} className="w-full h-full object-cover" controls />}
-                   <div className="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 transition-opacity p-4 flex flex-col justify-end">
-                     <p className="text-[9px] font-black uppercase tracking-tight line-clamp-2">{m.prompt}</p>
-                   </div>
+          {activeTab === TabType.LOGS && (
+            <div className="p-8 h-full overflow-y-auto font-mono text-xs">
+              <h2 className="text-sm font-bold mb-4 text-blue-400 uppercase tracking-widest">Telemetric Flow Log</h2>
+              <div className="space-y-3">
+                <div className="flex space-x-4 border-l-2 border-green-500/30 pl-4 py-2 bg-green-500/5 rounded-r-md">
+                  <span className="text-green-500 font-bold w-24 uppercase">[SYSTEM]</span>
+                  <span className="text-[#D1D5DB]">Studio system ready. Plugins synced.</span>
+                </div>
+                {agentLogs.map((log, i) => (
+                  <div key={i} className="flex space-x-4 border-l-2 border-[#303030] pl-4 py-2">
+                    <span className="text-[#9CA3AF] w-24">[{log.agent.toUpperCase()}]</span>
+                    <span className="text-[#D1D5DB]">{log.action}</span>
+                    <span className={`text-[9px] px-2 py-0.5 rounded ${log.status === 'complete' ? 'bg-green-900/40 text-green-400' : 'bg-blue-900/40 text-blue-400'}`}>
+                      {log.status.toUpperCase()}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {activeTab === TabType.COLAB && (
+            <div className="h-full p-12 bg-[#0E0E0E] flex flex-col items-center justify-center space-y-8 text-center">
+              <div className="w-20 h-20 bg-orange-500/10 rounded-3xl flex items-center justify-center text-4xl border border-orange-500/20">
+                📙
+              </div>
+              <div className="max-w-md space-y-3">
+                <h2 className="text-2xl font-bold text-white tracking-tight">Export to Google Colab</h2>
+                <p className="text-white/50 text-sm leading-relaxed">
+                  Convert your generated project files into a single Jupyter Notebook (.ipynb) compatible with Google Colab.
+                </p>
+              </div>
+              <button onClick={handleExportColab} disabled={currentFiles.length === 0} className="px-10 py-4 bg-orange-600 hover:bg-orange-500 disabled:opacity-30 text-white font-bold rounded-2xl transition-all shadow-xl active:scale-95 text-xs uppercase tracking-widest">
+                Download Notebook (.ipynb)
+              </button>
+            </div>
+          )}
+
+          {activeTab === TabType.DEPLOY && (
+            <div className="h-full grid grid-cols-1 md:grid-cols-2 gap-8 p-12 overflow-y-auto bg-[#0E0E0E] custom-scrollbar">
+              {/* Vercel Section */}
+              <div className="border border-[#303030] rounded-3xl p-8 bg-[#141414] shadow-2xl flex flex-col">
+                 <h2 className="text-xl font-bold flex items-center space-x-2 text-white mb-2"><span>▲</span> <span>Vercel Edge</span></h2>
+                 <p className="text-xs text-[#9CA3AF] mb-8 font-medium">Instantly deploy to global infrastructure.</p>
+                 <div className="space-y-5 flex-1">
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-[#555]">Vercel API Token</label>
+                      <input 
+                        type="password" 
+                        value={vercelToken} 
+                        onChange={e => setVercelToken(e.target.value)} 
+                        className="w-full bg-[#0E0E0E] border border-[#303030] rounded-xl p-3 text-sm mt-1 focus:ring-1 ring-blue-500 outline-none transition-all placeholder:text-[#333]" 
+                        placeholder="sk_..." 
+                      />
+                    </div>
                  </div>
-               ))}
+                 <div className="mt-8 space-y-4">
+                   <button 
+                     onClick={async () => {
+                       if (!vercelToken) return alert('Token required');
+                       setIsGenerating(true);
+                       try {
+                         const d = await deployToVercel(currentFiles, vercelToken, projectName);
+                         setDeployment(d);
+                       } catch (err: any) { alert(err.message); } finally { setIsGenerating(false); }
+                     }} 
+                     className="w-full py-4 bg-white text-black font-bold rounded-2xl hover:bg-gray-100 transition-all text-xs uppercase tracking-widest shadow-lg active:scale-95 disabled:opacity-50"
+                     disabled={isGenerating}
+                   >
+                     Launch to Vercel
+                   </button>
+                   {deployment && (
+                     <div className="p-4 bg-green-500/5 border border-green-500/20 rounded-2xl text-xs">
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-[#555] font-bold uppercase tracking-widest">Status</span>
+                          <span className="text-green-400 font-bold">{deployment.state}</span>
+                        </div>
+                        <a href={`https://${deployment.url}`} target="_blank" className="w-full block py-2 text-center bg-blue-500/10 text-blue-400 rounded-xl border border-blue-500/20 hover:bg-blue-500/20 transition-all font-bold mt-2">Open Deployment →</a>
+                     </div>
+                   )}
+                 </div>
+              </div>
+
+              {/* GitHub Section */}
+              <div className="border border-[#303030] rounded-3xl p-8 bg-[#141414] shadow-2xl flex flex-col">
+                 <h2 className="text-xl font-bold flex items-center space-x-2 text-white mb-2">
+                   <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                   <span>GitHub Pipeline</span>
+                 </h2>
+                 <p className="text-xs text-[#9CA3AF] mb-8 font-medium">Commit and push to your repositories.</p>
+                 <div className="space-y-4 flex-1">
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-[#555]">Personal Access Token</label>
+                      <input 
+                        type="password" 
+                        value={githubToken} 
+                        onChange={e => setGithubToken(e.target.value)} 
+                        className="w-full bg-[#0E0E0E] border border-[#303030] rounded-xl p-3 text-sm mt-1 focus:ring-1 ring-blue-500 outline-none transition-all placeholder:text-[#333]" 
+                        placeholder="ghp_..." 
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-[#555]">Owner / Username</label>
+                        <input 
+                          type="text" 
+                          value={githubOwner} 
+                          onChange={e => setGithubOwner(e.target.value)} 
+                          className="w-full bg-[#0E0E0E] border border-[#303030] rounded-xl p-3 text-sm mt-1 focus:ring-1 ring-blue-500 outline-none transition-all placeholder:text-[#333]" 
+                          placeholder="octocat" 
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-[#555]">Repository Name</label>
+                        <input 
+                          type="text" 
+                          value={githubRepoName} 
+                          onChange={e => setGithubRepoName(e.target.value)} 
+                          className="w-full bg-[#0E0E0E] border border-[#303030] rounded-xl p-3 text-sm mt-1 focus:ring-1 ring-blue-500 outline-none transition-all placeholder:text-[#333]" 
+                          placeholder="my-cool-project" 
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-6 pt-2">
+                      <label className="flex items-center space-x-2 cursor-pointer group">
+                        <input type="checkbox" checked={githubIsPrivate} onChange={e => setGithubIsPrivate(e.target.checked)} className="hidden" />
+                        <div className={`w-4 h-4 rounded border ${githubIsPrivate ? 'bg-blue-600 border-blue-600' : 'border-[#444]'} flex items-center justify-center transition-all`}>
+                          {githubIsPrivate && <svg width="10" height="10" viewBox="0 0 24 24" fill="white"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>}
+                        </div>
+                        <span className="text-[10px] font-bold uppercase text-[#888] group-hover:text-white transition-colors">Private Repo</span>
+                      </label>
+                      <label className="flex items-center space-x-2 cursor-pointer group">
+                        <input type="checkbox" checked={githubInitReadme} onChange={e => setGithubInitReadme(e.target.checked)} className="hidden" />
+                        <div className={`w-4 h-4 rounded border ${githubInitReadme ? 'bg-blue-600 border-blue-600' : 'border-[#444]'} flex items-center justify-center transition-all`}>
+                          {githubInitReadme && <svg width="10" height="10" viewBox="0 0 24 24" fill="white"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>}
+                        </div>
+                        <span className="text-[10px] font-bold uppercase text-[#888] group-hover:text-white transition-colors">Init README</span>
+                      </label>
+                    </div>
+                 </div>
+                 <div className="mt-8 space-y-4">
+                   <button 
+                     onClick={handleGitHubPush} 
+                     className="w-full py-4 bg-[#2EA44F] text-white font-bold rounded-2xl hover:bg-[#2C974B] transition-all text-xs uppercase tracking-widest shadow-lg active:scale-95 disabled:opacity-50"
+                     disabled={isGenerating}
+                   >
+                     {isGenerating ? 'Pushing...' : 'Initialize & Sync GitHub'}
+                   </button>
+                   {githubStatus && (
+                     <div className="p-4 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-mono">
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-[#555] uppercase font-bold">Protocol Status</span>
+                        </div>
+                        <span className="text-white/70 block truncate">{githubStatus}</span>
+                        {githubRepoUrl && (
+                          <a href={githubRepoUrl} target="_blank" className="text-blue-400 mt-2 block underline">Visit Repository →</a>
+                        )}
+                     </div>
+                   )}
+                 </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === TabType.GCS && (
+            <div className="h-full p-12 bg-[#0E0E0E] overflow-y-auto custom-scrollbar">
+              <div className="max-w-4xl mx-auto space-y-8">
+                <header className="flex items-center space-x-4">
+                  <div className="w-12 h-12 bg-blue-500/20 rounded-2xl flex items-center justify-center text-2xl border border-blue-500/30">☁️</div>
+                  <div>
+                    <h1 className="text-2xl font-extrabold text-white">Google Cloud Storage</h1>
+                    <p className="text-white/40 text-sm">Upload and manage project assets in GCS buckets.</p>
+                  </div>
+                </header>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="glass-panel p-8 rounded-3xl border border-white/5 space-y-6">
+                    <h3 className="text-xs font-bold text-blue-400 uppercase tracking-widest">Configuration</h3>
+                    
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-[#555]">Access Token (OAuth2)</label>
+                        <input 
+                          type="password" 
+                          value={gcsToken} 
+                          onChange={e => setGcsToken(e.target.value)} 
+                          className="w-full bg-[#0E0E0E] border border-[#303030] rounded-xl p-3 text-sm focus:ring-1 ring-blue-500 outline-none" 
+                          placeholder="ya29.a0AfH..."
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-[#555]">Project ID</label>
+                        <div className="flex gap-2">
+                          <input 
+                            type="text" 
+                            value={gcsProjectId} 
+                            onChange={e => setGcsProjectId(e.target.value)} 
+                            className="flex-1 bg-[#0E0E0E] border border-[#303030] rounded-xl p-3 text-sm focus:ring-1 ring-blue-500 outline-none" 
+                            placeholder="my-project-123"
+                          />
+                          <button onClick={handleGCSFetchBuckets} className="px-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-all text-[10px] font-bold uppercase">Fetch</button>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-[#555]">Select Bucket</label>
+                        <select 
+                          value={gcsBucket} 
+                          onChange={e => setGcsBucket(e.target.value)}
+                          className="w-full bg-[#0E0E0E] border border-[#303030] rounded-xl p-3 text-sm focus:ring-1 ring-blue-500 outline-none text-white font-mono"
+                        >
+                          <option value="">Choose a bucket...</option>
+                          {gcsBucketsList.map(b => (
+                            <option key={b.id} value={b.name}>{b.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="glass-panel p-8 rounded-3xl border border-white/5 flex flex-col justify-between">
+                    <div>
+                      <h3 className="text-xs font-bold text-blue-400 uppercase tracking-widest mb-4">Action</h3>
+                      <p className="text-xs text-white/50 leading-relaxed mb-6">
+                        Upload all currently generated files to the selected bucket. 
+                        Files will be stored under a folder named after your project: <span className="text-blue-400 font-mono">/{projectName}</span>
+                      </p>
+                      
+                      {gcsStatus && (
+                        <div className="mb-6 p-4 bg-blue-500/5 border border-blue-500/10 rounded-xl">
+                          <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest block mb-1">Status Report</span>
+                          <span className="text-xs font-mono">{gcsStatus}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <button 
+                      onClick={handleGCSUpload}
+                      disabled={!gcsToken || !gcsBucket || currentFiles.length === 0 || isGenerating}
+                      className="w-full py-4 bg-blue-600 hover:bg-blue-500 disabled:opacity-30 text-white font-bold rounded-2xl transition-all shadow-xl active:scale-95 text-xs uppercase tracking-widest"
+                    >
+                      {isGenerating ? 'Processing...' : 'Upload Project to GCS'}
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </div>
+      </main>
 
-        <div className="p-8 bg-[#030303] border-t border-white/5 space-y-4">
-          <div className="flex items-center justify-between text-[8px] font-black uppercase tracking-widest">
-            <div className="flex space-x-2">
-              <button onClick={() => setThinkingEnabled(!thinkingEnabled)} className={`px-2 py-1 rounded-full border transition-all ${thinkingEnabled ? 'bg-white text-black border-white' : 'border-white/5 text-slate-600'}`}>Thinking</button>
-              <button onClick={() => setGroundingEnabled(!groundingEnabled)} className={`px-2 py-1 rounded-full border transition-all ${groundingEnabled ? 'bg-indigo-600 border-indigo-500 text-white' : 'border-white/5 text-slate-600'}`}>Grounding</button>
-            </div>
-            <select value={imgSize} onChange={e => setImgSize(e.target.value as any)} className="bg-transparent text-white outline-none">
-              <option value="1K">1K</option><option value="2K">2K</option><option value="4K">4K</option>
+      {/* Right control panel */}
+      <aside className="w-72 border-l border-[#303030] bg-[#111111] flex flex-col p-6 space-y-8">
+        <div className="space-y-4">
+          <h3 className="text-[10px] font-bold text-blue-400 uppercase tracking-widest border-b border-[#262626] pb-2">Configuration</h3>
+          <div>
+            <label className="text-[11px] mb-2 uppercase font-bold text-[#888]">Compiler</label>
+            <select className="w-full bg-[#0E0E0E] border border-[#303030] rounded p-2 text-xs outline-none focus:border-blue-500 text-white font-mono">
+               <option>gemini-3-pro-preview</option>
+               <option>gemini-3-flash-preview</option>
             </select>
           </div>
-          <div className="relative group">
-            <textarea 
-              value={input} 
-              onChange={e => setInput(e.target.value)}
-              className="w-full bg-[#080808] border border-white/5 rounded-3xl p-6 text-sm h-32 focus:ring-1 ring-white outline-none transition-all resize-none font-medium placeholder:text-slate-800" 
-              placeholder="Deploy a Modal, generate 4K art, or prompt video..."
-              onKeyDown={e => { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleCommand(); } }}
-            />
-            <div className="absolute bottom-4 right-4 flex space-x-2">
-               <button onClick={() => handleMediaGen('image')} className="w-10 h-10 bg-white/5 rounded-2xl flex items-center justify-center hover:bg-white/10 transition-all text-white" title="Gen Image"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></button>
-               <button onClick={() => handleMediaGen('video')} className="w-10 h-10 bg-white/5 rounded-2xl flex items-center justify-center hover:bg-white/10 transition-all text-white" title="Gen Video"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2" ry="2"/></svg></button>
-               <button onClick={() => handleCommand()} disabled={isGenerating || !input.trim()} className="w-10 h-10 bg-white rounded-2xl flex items-center justify-center text-black hover:bg-slate-200 disabled:opacity-20 transition-all shadow-xl"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg></button>
-            </div>
+          <div>
+            <label className="text-[11px] mb-2 uppercase font-bold text-[#888]">Modal Animation</label>
+            <select 
+              value={modalTransition}
+              onChange={(e) => setModalTransition(e.target.value as ModalTransition)}
+              className="w-full bg-[#0E0E0E] border border-[#303030] rounded p-2 text-xs outline-none focus:border-blue-500 text-white"
+            >
+               <option value="zoom">Zoom (Standard)</option>
+               <option value="slide">Slide (Vertical)</option>
+               <option value="fade">Fade (Ghost)</option>
+               <option value="fadeSlideIn">Fade + Slide (Subtle)</option>
+            </select>
           </div>
         </div>
-      </div>
-
-      {/* Workspace Area */}
-      <div className="flex-1 flex flex-col bg-[#020202]">
-        <nav className="flex items-center px-10 border-b border-white/5 h-20 bg-[#050505]">
-          <div className="flex space-x-12 h-full">
-            <TabBtn active={activeTab === TabType.EDITOR} onClick={() => setActiveTab(TabType.EDITOR)} label="Workspace" />
-            <TabBtn active={activeTab === TabType.MEDIA} onClick={() => setActiveTab(TabType.MEDIA)} label="Media Lab" />
-            <TabBtn active={activeTab === TabType.DEPLOY} onClick={() => setActiveTab(TabType.DEPLOY)} label="Edge Cloud" />
-          </div>
-          
-          <div className="ml-auto flex items-center space-x-8">
-             <div className="flex flex-col items-end">
-                <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest">Compiler Stack</span>
-                <span className="text-[10px] font-black text-white">{selectedFramework}</span>
-             </div>
-             {isGenerating && (
-               <div className="flex items-center space-x-3 px-5 py-2.5 bg-white/5 border border-white/10 rounded-2xl animate-pulse">
-                 <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
-                 <span className="text-[9px] font-black uppercase text-white tracking-[0.2em]">Compiling</span>
-               </div>
-             )}
-          </div>
-        </nav>
-
-        <div className="flex-1 overflow-hidden relative">
-          {activeTab === TabType.EDITOR ? (
-            <div className="h-full flex">
-              <div className="w-72 border-r border-white/5 p-8 bg-[#050505] flex flex-col">
-                <p className="text-[10px] font-black uppercase text-slate-600 mb-8 tracking-[0.3em]">Source Tree</p>
-                <div className="flex-1 overflow-y-auto space-y-1 scrollbar-none">
-                  {currentFiles.map((f, i) => (
-                    <button 
-                      key={i} 
-                      onClick={() => setSelectedFileIndex(i)} 
-                      className={`w-full text-left px-5 py-4 rounded-2xl text-[11px] font-black transition-all ${selectedFileIndex === i ? 'bg-white text-black shadow-2xl' : 'text-slate-500 hover:bg-white/5 hover:text-slate-300'}`}
-                    >
-                      {f.path}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="flex-1 relative">
-                <Editor 
-                  height="100%" 
-                  theme="vs-dark" 
-                  defaultLanguage="typescript" 
-                  value={currentFiles[selectedFileIndex]?.content || "// Transmitting neural architectural nodes..."} 
-                  options={{
-                    fontFamily: "'JetBrains Mono', monospace",
-                    fontSize: 15,
-                    lineHeight: 1.6,
-                    minimap: { enabled: false },
-                    padding: { top: 32 },
-                    cursorBlinking: 'smooth',
-                    smoothScrolling: true
-                  }}
-                />
-              </div>
-            </div>
-          ) : activeTab === TabType.MEDIA ? (
-            <div className="h-full p-16 overflow-y-auto bg-[#030303] scrollbar-none">
-               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 pb-32">
-                  {mediaItems.map(item => (
-                    <div key={item.id} className="bg-[#080808] border border-white/5 rounded-[48px] p-8 space-y-8 shadow-3xl relative group">
-                       <div className="aspect-[16/9] bg-black rounded-[32px] overflow-hidden border border-white/5 shadow-inner flex items-center justify-center">
-                          {item.type === 'image' ? (
-                            <img src={item.url} className="w-full h-full object-contain" />
-                          ) : (
-                            <video src={item.url} className="w-full h-full object-contain" controls />
-                          )}
-                       </div>
-                       <div className="px-2 flex justify-between items-center">
-                          <div>
-                            <p className="text-[10px] font-black text-white uppercase tracking-widest mb-2 italic">Synthesized Asset</p>
-                            <p className="text-xs text-slate-500 font-medium italic opacity-60 truncate max-w-[200px]">"{item.prompt}"</p>
-                          </div>
-                          <button onClick={() => handleMediaGen('edit')} className="p-3 bg-white/5 rounded-2xl hover:bg-indigo-600 transition-all text-white" title="Edit with Flash Image">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                          </button>
-                       </div>
-                    </div>
-                  ))}
-               </div>
-            </div>
-          ) : (
-            <div className="h-full bg-[#020202] p-24 flex justify-center">
-              <div className="max-w-3xl w-full bg-[#080808] p-20 rounded-[80px] border border-white/5 shadow-3xl space-y-16 relative overflow-hidden text-center">
-                <header className="relative z-10 space-y-4">
-                  <h2 className="text-7xl font-black text-white italic tracking-tighter">Global Push</h2>
-                  <p className="text-[12px] font-black uppercase text-white tracking-[0.5em] opacity-40">Vercel Deployment Provisioning</p>
-                </header>
-                <div className="space-y-6 relative z-10">
-                  <input type="password" value={vercelToken} onChange={e => setVercelToken(e.target.value)} placeholder="VERCEL_AUTH_TOKEN" className="w-full bg-black border border-white/5 p-10 rounded-[40px] text-sm outline-none font-bold placeholder:text-slate-800" />
-                  <input type="text" value={projectName} onChange={e => setProjectName(e.target.value)} placeholder="Project ID" className="w-full bg-black border border-white/5 p-10 rounded-[40px] text-sm outline-none font-bold placeholder:text-slate-800" />
-                  <button onClick={async () => {
-                    setIsGenerating(true);
-                    try {
-                      const d = await deployToVercel(currentFiles, vercelToken, projectName);
-                      setDeployment(d);
-                    } catch (err: any) {
-                      setMessages(prev => [...prev, { role: 'assistant', content: `Push failed: ${err.message}` }]);
-                    } finally { setIsGenerating(false); }
-                  }} disabled={isGenerating || currentFiles.length === 0} className="w-full bg-white py-10 rounded-[40px] font-black uppercase text-[12px] tracking-[0.4em] text-black hover:bg-slate-200 transition-all shadow-2xl">
-                    {isGenerating ? "Handshaking..." : "Initialize Edge Synthesis"}
-                  </button>
-                </div>
-                {deployment && (
-                   <div className="p-10 bg-white/5 rounded-[40px] border border-white/10 flex justify-between items-center relative z-10 animate-in fade-in slide-in-from-bottom-8">
-                      <div className="text-left">
-                        <span className="text-[10px] font-black uppercase text-slate-500 mb-2 block tracking-widest">Cloud Status</span>
-                        <span className="text-[12px] font-black uppercase text-emerald-400 tracking-widest animate-pulse">{deployment.state}</span>
-                      </div>
-                      <a href={`https://${deployment.url}`} target="_blank" className="px-10 py-4 bg-white text-black rounded-[24px] text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 transition-all">Go Live</a>
-                   </div>
-                )}
-              </div>
-            </div>
-          )}
+        
+        <div className="flex-1"></div>
+        
+        <div className="p-4 bg-blue-500/5 border border-blue-500/10 rounded-2xl space-y-3">
+           <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">Neural UI Stack</p>
+           <p className="text-[11px] text-[#9CA3AF] leading-relaxed">
+             Active Files: {currentFiles.length}
+           </p>
+           <div className="flex flex-wrap gap-1 pt-1">
+             {currentFiles.slice(0, 3).map((f, idx) => (
+               <span key={idx} className="px-2 py-0.5 bg-blue-900/40 text-blue-400 text-[8px] font-bold rounded uppercase truncate max-w-[80px]">{f.path.split('/').pop()}</span>
+             ))}
+             {currentFiles.length > 3 && <span className="text-[8px] text-white/30 font-bold">+{currentFiles.length - 3}</span>}
+           </div>
         </div>
-      </div>
+      </aside>
+
+      <NeuralModal 
+        isOpen={showInfoModal} 
+        onClose={() => setShowInfoModal(false)} 
+        title="Studio Protocol Information" 
+        transition={modalTransition}
+        content={
+          <div className="space-y-4">
+            <p className="text-white/70 text-sm">Protocol Core: IntelliBuild AI v4.0.2</p>
+            <p className="text-white/40 text-xs">Current transition set to: <span className="text-blue-400 font-mono">{modalTransition}</span></p>
+            <div className="pt-4 border-t border-white/5 space-y-2">
+               <p className="text-[10px] font-bold text-white/40 uppercase">System Integrity</p>
+               <div className="grid grid-cols-2 gap-2 text-[10px]">
+                 <div className="flex justify-between border border-white/5 p-2 rounded"><span>latency</span> <span className="text-green-500">24ms</span></div>
+                 <div className="flex justify-between border border-white/5 p-2 rounded"><span>status</span> <span className="text-green-500">verified</span></div>
+               </div>
+            </div>
+          </div>
+        } 
+      />
     </div>
   );
 };
 
-const TabBtn: React.FC<{ active: boolean; onClick: () => void; label: string }> = ({ active, onClick, label }) => (
-  <button onClick={onClick} className={`px-4 h-full text-[10px] font-black uppercase tracking-[0.4em] transition-all relative flex items-center group ${active ? 'text-white' : 'text-slate-600'}`}>
+const TabButton: React.FC<{ active: boolean; onClick: () => void; label: string }> = ({ active, onClick, label }) => (
+  <button onClick={onClick} className={`h-full text-[10px] font-bold uppercase tracking-widest px-6 border-b-2 transition-all ${active ? 'border-blue-400 text-blue-400 bg-blue-400/5' : 'border-transparent text-[#555] hover:text-[#999]'}`}>
     {label}
-    {active && <span className="absolute bottom-0 left-0 right-0 h-1.5 bg-white shadow-[0_-10px_30px_rgba(255,255,255,0.8)]"></span>}
+  </button>
+);
+
+const NavButton: React.FC<{ active: boolean; onClick: () => void; label: string; icon: string }> = ({ active, onClick, label, icon }) => (
+  <button onClick={onClick} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${active ? 'bg-white/5 text-white border border-white/10' : 'text-white/40 hover:bg-white/5 hover:text-white'}`}>
+    <span className="text-base">{icon}</span>
+    <span className="text-xs font-medium uppercase tracking-widest">{label}</span>
   </button>
 );
 

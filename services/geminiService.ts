@@ -1,99 +1,170 @@
 
-import { GoogleGenAI, Type, Modality } from "@google/genai";
-import { GenerationResult } from "../types";
+import { GoogleGenAI, Type } from "@google/genai";
+import { GenerationResult, LibraryItem, ModelConfig, GeneratedFile } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+const DEFAULT_SYSTEM_INSTRUCTION = `你是一个顶级进化级全栈 AI 编排系统（IntelliBuild Studio Core）。
+你的核心开发准则是：
+1. 【极致无障碍 (Accessibility)】：必须使用语义化 HTML5 标签（main, nav, section, article 等）。所有交互组件必须包含完整的 WAI-ARIA 属性（aria-label, role, aria-expanded 等）。确保键盘可访问性（Focus trap, Tab order）。
+2. 【测试驱动开发 (TDD)】：为每一个生成的 React 组件提供对应的 Vitest 单元测试文件（.test.tsx）。使用 React Testing Library 进行组件挂载和交互模拟测试。
+3. 【极致性能】：使用 Tailwind CSS 进行原子级样式管理。优先使用 React 服务器组件（如果适用）和优化后的 Hooks。
+4. 【类型安全】：所有代码必须使用严格的 TypeScript 类型定义。`;
 
-const toPascalCase = (str: string): string => {
-  return str.replace(/[-_ ]+/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join('').replace(/[^a-zA-Z0-9]/g, '');
-};
+export const generateFullStackProject = async (
+  prompt: string, 
+  config: ModelConfig,
+  customLibrary: LibraryItem[] = []
+): Promise<GenerationResult> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const libraryContext = customLibrary.map(item => `- ${item.name}: ${item.description}`).join('\n');
 
-const FRAMEWORK_MATRIX_CONTEXT = `
-Frameworks: Next.js, SvelteKit, Nuxt, Astro, Remix, Vite.
-Features: SSR, Edge Routing, Middleware, ISR, Image Optimization.
-Design Style: Vercel-inspired, dark mode, high-contrast, professional spacing.
-`;
+  const enhancedPrompt = `User Request: ${prompt}
 
-export const generateFrontendProject = async (prompt: string, useThinking: boolean = false): Promise<GenerationResult> => {
-  const config: any = {
-    systemInstruction: `You are a high-performance Intelligent Compiler. 
-    ${FRAMEWORK_MATRIX_CONTEXT}
-    When generating a "Modal" component, use Tailwind CSS for smooth animations (opacity/scale transitions) and a backdrop-blur. 
-    Ensure it accepts title, content, isOpen, and onClose props.
-    Output Format: Pure JSON only.`,
+Requirement Checklist:
+- Use semantic HTML tags for all structural elements.
+- Apply ARIA attributes to all interactive components.
+- Generate at least one Vitest test file (.test.tsx) for each major component.
+- Use Tailwind CSS for styling.
+- Ensure all components are responsive and mobile-friendly.`;
+
+  const genConfig: any = {
+    systemInstruction: `${config.systemInstruction || DEFAULT_SYSTEM_INSTRUCTION}\n\nLibrary context for reuse:\n${libraryContext}`,
     responseMimeType: "application/json",
+    temperature: config.temperature,
+    topP: config.topP,
+    topK: config.topK,
+    responseSchema: {
+      type: Type.OBJECT,
+      properties: {
+        projectName: { type: Type.STRING },
+        files: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              path: { type: Type.STRING },
+              content: { type: Type.STRING },
+              type: { type: Type.STRING, description: "frontend | backend | test | config" }
+            },
+            required: ["path", "content", "type"]
+          }
+        },
+        agentLogs: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              agent: { type: Type.STRING },
+              action: { type: Type.STRING },
+              status: { type: Type.STRING }
+            }
+          }
+        }
+      },
+      required: ["projectName", "files", "agentLogs"]
+    }
   };
 
-  if (useThinking) {
-    config.thinkingConfig = { thinkingBudget: 32768 };
+  if (config.thinkingBudget > 0) {
+    genConfig.thinkingConfig = { thinkingBudget: config.thinkingBudget };
   }
 
   const response = await ai.models.generateContent({
-    model: "gemini-3-pro-preview",
-    contents: prompt,
-    config
+    model: config.thinkingBudget > 0 ? "gemini-3-pro-preview" : "gemini-3-flash-preview",
+    contents: enhancedPrompt,
+    config: genConfig
   });
 
-  const data = JSON.parse(response.text || '{}');
-  if (data.componentName) data.componentName = toPascalCase(data.componentName);
-  return data as GenerationResult;
+  return JSON.parse(response.text || '{}') as GenerationResult;
 };
 
-export const groundedChat = async (prompt: string, tools: ('search' | 'maps')[]): Promise<{ text: string; links: any[] }> => {
-  const toolConfig: any[] = [];
-  if (tools.includes('search')) toolConfig.push({ googleSearch: {} });
-  if (tools.includes('maps')) toolConfig.push({ googleMaps: {} });
+/**
+ * Converts a project's files into a single Jupyter Notebook string (.ipynb)
+ * suitable for Google Colab.
+ */
+export const convertToColabNotebook = (files: GeneratedFile[], projectName: string): string => {
+  const cells: any[] = [
+    {
+      cell_type: "markdown",
+      metadata: {},
+      source: [
+        `# ${projectName}\n`,
+        "This notebook was automatically generated by IntelliBuild Studio. It contains the complete source code for your project."
+      ]
+    }
+  ];
 
-  const response = await ai.models.generateContent({
-    model: tools.includes('maps') ? "gemini-2.5-flash" : "gemini-3-flash-preview",
-    contents: prompt,
-    config: { tools: toolConfig }
+  files.forEach(file => {
+    cells.push({
+      cell_type: "markdown",
+      metadata: {},
+      source: [`## File: \`${file.path}\`\n`]
+    });
+    
+    cells.push({
+      cell_type: "code",
+      execution_count: null,
+      metadata: {},
+      outputs: [],
+      source: file.content.split('\n').map(line => line + '\n')
+    });
   });
 
-  const links = response.candidates?.[0]?.groundingMetadata?.groundingChunks?.map((c: any) => 
-    c.web ? { uri: c.web.uri, title: c.web.title } : c.maps ? { uri: c.maps.uri, title: c.maps.title } : null
-  ).filter(Boolean) || [];
+  const notebook = {
+    cells,
+    metadata: {
+      kernelspec: {
+        display_name: "Python 3",
+        language: "python",
+        name: "python3"
+      },
+      language_info: {
+        name: "python",
+        version: "3.8"
+      },
+      colab: {
+        provenance: []
+      }
+    },
+    nbformat: 4,
+    nbformat_minor: 0
+  };
 
-  return { text: response.text || '', links };
+  return JSON.stringify(notebook, null, 2);
 };
 
 export const generateImagePro = async (prompt: string, aspectRatio: string, imageSize: string): Promise<string> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
     model: 'gemini-3-pro-image-preview',
-    contents: prompt,
+    contents: { parts: [{ text: prompt }] },
     config: { imageConfig: { aspectRatio, imageSize } },
   });
-
-  for (const part of response.candidates[0].content.parts) {
-    if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
-  }
-  throw new Error("No image generated.");
-};
-
-export const editImage = async (prompt: string, base64Data: string): Promise<string> => {
-  const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash-image',
-    contents: {
-      parts: [
-        { inlineData: { data: base64Data, mimeType: 'image/png' } },
-        { text: prompt }
-      ]
+  
+  for (const candidate of response.candidates || []) {
+    for (const part of candidate.content.parts) {
+      if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
     }
-  });
-
-  for (const part of response.candidates[0].content.parts) {
-    if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
   }
-  throw new Error("Editing failed.");
+  throw new Error("Generation failed");
 };
 
-export const generateVideoVeo = async (prompt: string, aspectRatio: '16:9' | '9:16', sourceImage?: string): Promise<string> => {
-  let operation = await ai.models.generateVideos({
+export const generateVideoVeo = async (prompt: string, aspectRatio: '16:9' | '9:16', imageB64?: string): Promise<string> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  
+  const videoParams: any = {
     model: 'veo-3.1-fast-generate-preview',
     prompt,
-    image: sourceImage ? { imageBytes: sourceImage, mimeType: 'image/png' } : undefined,
     config: { numberOfVideos: 1, resolution: '720p', aspectRatio }
-  });
+  };
+
+  if (imageB64) {
+    videoParams.image = {
+      imageBytes: imageB64.split(',')[1] || imageB64,
+      mimeType: 'image/png'
+    };
+  }
+
+  let operation = await ai.models.generateVideos(videoParams);
 
   while (!operation.done) {
     await new Promise(resolve => setTimeout(resolve, 10000));
@@ -104,16 +175,45 @@ export const generateVideoVeo = async (prompt: string, aspectRatio: '16:9' | '9:
   return `${downloadLink}&key=${process.env.API_KEY}`;
 };
 
-export const generateSpeech = async (text: string): Promise<string> => {
+export const analyzeImage = async (prompt: string, imageB64: string): Promise<string> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash-preview-tts",
-    contents: [{ parts: [{ text }] }],
-    config: {
-      responseModalities: [Modality.AUDIO],
-      speechConfig: {
-        voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } },
-      },
-    },
+    model: 'gemini-3-pro-preview',
+    contents: {
+      parts: [
+        { inlineData: { data: imageB64.split(',')[1] || imageB64, mimeType: 'image/png' } },
+        { text: prompt }
+      ]
+    }
   });
-  return response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || "";
+  return response.text || "No analysis returned.";
+};
+
+export const editImageNano = async (prompt: string, imageB64: string): Promise<string> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.5-flash-image',
+    contents: {
+      parts: [
+        { inlineData: { data: imageB64.split(',')[1] || imageB64, mimeType: 'image/png' } },
+        { text: prompt }
+      ]
+    }
+  });
+
+  for (const candidate of response.candidates || []) {
+    for (const part of candidate.content.parts) {
+      if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
+    }
+  }
+  throw new Error("Editing failed");
+};
+
+export const fastChatLite = async (prompt: string): Promise<string> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const response = await ai.models.generateContent({
+    model: 'gemini-flash-lite-latest',
+    contents: prompt
+  });
+  return response.text || "";
 };
