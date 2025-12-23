@@ -1,0 +1,5 @@
+{
+  "name": "IntelliBuild AI Compiler",
+  "description": "A high-performance intelligent compiler that generates React components from natural language and deploys them directly to Vercel.",
+  "requestFramePermissions": []
+}
