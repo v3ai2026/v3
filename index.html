@@ -21,21 +21,21 @@
         body { margin: 0; padding: 0; overflow: hidden; background-color: #050505; color: #E3E3E3; font-family: 'Inter', sans-serif; }
         ::-webkit-scrollbar { width: 4px; height: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #222; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: #D4AF37; }
+        ::-webkit-scrollbar-thumb { background: #1a1a1a; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #BF953F; }
         
-        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 12px; height: 12px; background: #D4AF37; border-radius: 50%; cursor: pointer; border: 2px solid #050505; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 12px; height: 12px; background: #BF953F; border-radius: 50%; cursor: pointer; border: 2px solid #050505; }
 
         /* Neural Transitions */
         @keyframes modal-zoom {
-            0% { opacity: 0; transform: scale(0.85) translateY(10px); filter: blur(4px); }
+            0% { opacity: 0; transform: scale(0.92) translateY(5px); filter: blur(4px); }
             100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
         }
         @keyframes modal-slide {
             from { 
                 opacity: 0; 
-                transform: translateY(80px) scale(0.97); 
-                filter: blur(12px);
+                transform: translateY(60px) scale(0.99); 
+                filter: blur(10px);
             }
             to { 
                 opacity: 1; 
@@ -50,11 +50,13 @@
         @keyframes modal-fade-slide-in {
             0% { 
                 opacity: 0; 
-                transform: translateY(15px); 
+                transform: translateY(20px) scale(0.98); 
+                filter: blur(2px);
             }
             100% { 
                 opacity: 1; 
-                transform: translateY(0); 
+                transform: translateY(0) scale(1); 
+                filter: blur(0);
             }
         }
         @keyframes backdrop-fade {
@@ -62,46 +64,50 @@
             to { opacity: 1; }
         }
 
-        /* Gold Glow Pulse */
+        /* Gold Glow Pulse - Luxurious Deep Gold */
         @keyframes gold-glow {
-            0%, 100% { box-shadow: 0 0 10px rgba(212, 175, 55, 0.05); }
-            50% { box-shadow: 0 0 35px rgba(212, 175, 55, 0.25); }
+            0%, 100% { box-shadow: 0 0 15px rgba(191, 149, 63, 0.08); }
+            50% { box-shadow: 0 0 35px rgba(191, 149, 63, 0.2); }
         }
 
         /* Utility Animation Classes */
-        .animate-modal-zoom { animation: modal-zoom 0.6s cubic-bezier(0.19, 1, 0.22, 1) forwards; }
-        .animate-modal-slide { animation: modal-slide 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-        .animate-modal-fade { animation: modal-fade 0.5s ease-out forwards; }
+        .animate-modal-zoom { animation: modal-zoom 0.5s cubic-bezier(0.19, 1, 0.22, 1) forwards; }
+        .animate-modal-slide { animation: modal-slide 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .animate-modal-fade { animation: modal-fade 0.4s ease-out forwards; }
         .animate-modal-fade-slide-in { animation: modal-fade-slide-in 0.5s cubic-bezier(0.23, 1, 0.32, 1) forwards; }
-        .animate-backdrop { animation: backdrop-fade 0.8s ease-out forwards; }
-        .gold-glow { animation: gold-glow 5s infinite ease-in-out; }
+        .animate-backdrop { animation: backdrop-fade 0.6s ease-out forwards; }
+        .gold-glow { animation: gold-glow 6s infinite ease-in-out; }
 
         .glass-panel {
-            background: rgba(10, 10, 10, 0.8);
-            backdrop-filter: blur(25px);
-            border: 1px solid rgba(212, 175, 55, 0.12);
+            background: rgba(8, 8, 8, 0.85);
+            backdrop-filter: blur(30px);
+            border: 1px solid rgba(191, 149, 63, 0.15);
         }
 
+        /* Enterprise Gold Gradient - Metallic Look */
         .text-gold {
-            background: linear-gradient(to right, #D4AF37, #F9D976, #B8860B);
+            background: linear-gradient(to right, #BF953F, #FCF6BA, #B38728, #FBF5B7, #AA771C);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
         .bg-gold-gradient {
-            background: linear-gradient(135deg, #D4AF37 0%, #B8860B 100%);
+            background: linear-gradient(135deg, #BF953F 0%, #AA771C 100%);
         }
 
         .border-gold-subtle {
-            border-color: rgba(212, 175, 55, 0.2);
+            border-color: rgba(191, 149, 63, 0.18);
         }
 
         .custom-scrollbar::-webkit-scrollbar {
             width: 4px;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: rgba(212, 175, 55, 0.25);
+            background: rgba(191, 149, 63, 0.2);
             border-radius: 2px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(191, 149, 63, 0.4);
         }
     </style>
 </head>

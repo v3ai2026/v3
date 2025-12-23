@@ -2,6 +2,7 @@
 /**
  * GitHub API Service
  * Handles repository creation, file initialization, and code pushing.
+ * Optimized for Studio Agent OS sequential synchronization.
  */
 export class GitHubService {
   private baseUrl = 'https://api.github.com';
@@ -40,22 +41,21 @@ export class GitHubService {
       body: JSON.stringify({
         name,
         private: isPrivate,
-        auto_init: false, // We handle initialization manually to control files
-        description: 'Synchronized via Studio Agent Core',
+        auto_init: false, // Initialized manually for full control
+        description: 'Provisioned via Studio Agent OS - Enterprise Tier',
       }),
     });
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(`GitHub Create Repo Error: ${error.message || response.statusText}`);
+      throw new Error(`GitHub SCM Error: ${error.message || response.statusText}`);
     }
 
     return response.json();
   }
 
   /**
-   * Upsert a file in a repository.
-   * Note: For new repositories, the first push initializes the branch.
+   * Upsert a file in a repository shard.
    */
   async pushFile(owner: string, repo: string, path: string, content: string, message: string, sha?: string) {
     const contentBase64 = this.encodeContent(content);
@@ -77,21 +77,27 @@ export class GitHubService {
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(`GitHub Push File Error (${path}): ${error.message || response.statusText}`);
+      throw new Error(`SCM Write Conflict (${path}): ${error.message || response.statusText}`);
     }
 
     return response.json();
   }
 
   /**
-   * Initialize a repository with a set of files.
+   * Initialize a repository with a complete protocol suite.
    */
   async initializeAndPush(owner: string, repo: string, files: { path: string; content: string }[]) {
     const results = [];
     for (const file of files) {
-      // For a high-performance studio agent, we synchronize files sequentially 
-      // to ensure state consistency during the initial commit.
-      const res = await this.pushFile(owner, repo, file.path, file.content, `Initialize [NeuralProtocol]: ${file.path}`);
+      // Synchronize files sequentially to ensure shard consistency 
+      // during the initial provisioning phase.
+      const res = await this.pushFile(
+        owner, 
+        repo, 
+        file.path, 
+        file.content, 
+        `[Provisioning] IntelliBuild Studio: ${file.path.split('/').pop()}`
+      );
       results.push(res);
     }
     return results;
