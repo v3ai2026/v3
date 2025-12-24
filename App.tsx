@@ -24,7 +24,8 @@ const App: React.FC = () => {
     systemInstruction: INITIAL_SYSTEM
   });
 
-  const [activeTab, setActiveTab] = useState<TabType>(TabType.WORKSPACE);
+  // Initializing active tab to GITHUB as requested
+  const [activeTab, setActiveTab] = useState<TabType>(TabType.GITHUB);
   const [input, setInput] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationResult, setGenerationResult] = useState<GenerationResult | null>(null);
@@ -649,6 +650,48 @@ const App: React.FC = () => {
               <div className="flex-1 bg-[#020420]">
                 <Editor height="100%" theme="vs-dark" path={selectedFile?.path} defaultLanguage="typescript" value={selectedFile?.content} options={{ minimap: { enabled: false }, fontSize: 16 }} />
               </div>
+            </div>
+          )}
+
+          {activeTab === TabType.GITHUB && (
+            <div className="h-full flex flex-col items-center justify-center p-20 max-w-5xl mx-auto gap-12 animate-modal-fade">
+               <div className="text-center space-y-6">
+                 <h2 className="text-7xl font-black tracking-tighter uppercase text-[#00DC82]">SCM Orchestration</h2>
+                 <p className="text-[11px] font-black text-slate-500 tracking-[0.8em] uppercase leading-relaxed">GitHub Atomic Sync Protocol</p>
+               </div>
+               
+               <div className="w-full grid grid-cols-1 lg:grid-cols-2 gap-10">
+                 <div className="p-12 bg-[#03062c] border border-[#1a1e43] rounded-[3.5rem] space-y-8 shadow-2xl">
+                    <div className="space-y-6">
+                      <div className="space-y-3">
+                        <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest px-2">Access Token</label>
+                        <input type="password" value={ghToken} onChange={e => setGhToken(e.target.value)} className="w-full bg-[#020420] border border-[#1a1e43] rounded-2xl px-8 py-5 text-sm outline-none focus:border-[#00DC82]/50" placeholder="ghp_..." />
+                      </div>
+                      <div className="space-y-3">
+                        <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest px-2">Repository Name</label>
+                        <input type="text" value={ghRepoName} onChange={e => setGhRepoName(e.target.value)} className="w-full bg-[#020420] border border-[#1a1e43] rounded-2xl px-8 py-5 text-sm outline-none focus:border-[#00DC82]/50" placeholder="my-awesome-evolution" />
+                      </div>
+                      <div className="space-y-3">
+                        <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest px-2">Repository Description</label>
+                        <input type="text" value={ghDescription} onChange={e => setGhDescription(e.target.value)} className="w-full bg-[#020420] border border-[#1a1e43] rounded-2xl px-8 py-5 text-sm outline-none focus:border-[#00DC82]/50" placeholder="Description of your evolution..." />
+                      </div>
+                    </div>
+                    <button 
+                      onClick={handleGitHubSync}
+                      disabled={ghIsProvisioning || !ghToken || !ghRepoName || !generationResult}
+                      className="w-full py-6 bg-nuxt-gradient text-black font-black uppercase tracking-[0.3em] text-[12px] rounded-2xl shadow-xl transition-all disabled:opacity-30"
+                    >
+                      {ghIsProvisioning ? 'Syncing...' : 'Push to GitHub'}
+                    </button>
+                 </div>
+                 
+                 <div className="p-10 bg-[#020420] border border-[#1a1e43] rounded-[3.5rem] flex flex-col gap-6 shadow-2xl overflow-hidden">
+                    <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-[#1a1e43] pb-4">Log Sequence</div>
+                    <div className="flex-1 overflow-y-auto custom-scrollbar font-mono text-[11px] space-y-3 pr-2">
+                       {ghLogs.length === 0 ? <div className="text-slate-800 italic">Protocol idle...</div> : ghLogs.map((log, i) => <div key={i} className={log.includes('ERROR') ? 'text-red-500' : 'text-[#00DC82]'}>{log}</div>)}
+                    </div>
+                 </div>
+               </div>
             </div>
           )}
           
