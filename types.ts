@@ -23,24 +23,13 @@ export interface ModelConfig {
   systemInstruction: string;
 }
 
-export type ExtensionCategory = 'COMPILER' | 'INTERFACE' | 'PROTOCOL';
-
-export interface Extension {
+export interface AIAgent {
   id: string;
   name: string;
-  description: string;
-  category: ExtensionCategory;
-  version: string;
-  author: string;
-  enabled: boolean;
-  manifest: string;
-}
-
-export interface DeploymentStatus {
-  id: string;
-  url: string;
-  state: 'INITIALIZING' | 'ANALYZING' | 'BUILDING' | 'DEPLOYING' | 'READY' | 'ERROR';
-  createdAt: number;
+  role: string;
+  model: string;
+  instruction: string;
+  status: 'idle' | 'active' | 'deploying';
 }
 
 export interface LibraryItem {
@@ -52,28 +41,45 @@ export interface LibraryItem {
   codeSnippet?: string;
 }
 
-export interface AIAgent {
+export interface DeploymentStatus {
+  id: string;
+  url: string;
+  state: string;
+  createdAt: number;
+}
+
+export interface Extension {
   id: string;
   name: string;
-  role: string;
-  model: string;
-  instruction: string;
-  status: 'idle' | 'active' | 'deploying';
+  description: string;
+  category: string;
+  version: string;
+  author: string;
+  enabled: boolean;
+  manifest: string;
 }
 
 export enum TabType {
-  WORKSPACE = 'WORKSPACE',
-  WEBSITE_GEN = 'WEBSITE_GEN',
-  IMAGE_GEN = 'IMAGE_GEN',
-  EDITOR = 'EDITOR',
-  KNOWLEDGE = 'KNOWLEDGE',
-  BROWSER = 'BROWSER',
+  // Sector 1: Genesis (Creation)
+  CREATION_NOTEBOOK = 'CREATION_NOTEBOOK',
+  CREATION_ASSETS = 'CREATION_ASSETS',
+  
+  // Sector 2: Neural Market (Discovery)
+  MARKET_REGISTRY = 'MARKET_REGISTRY',
   AGENT_MANAGER = 'AGENT_MANAGER',
-  DEPLOY = 'DEPLOY',
+  
+  // Sector 3: Media Nexus (Commerce & Content)
+  MEDIA_YOUTUBE = 'MEDIA_YOUTUBE',
+  MEDIA_TIKTOK = 'MEDIA_TIKTOK',
+  MEDIA_TMDB = 'MEDIA_TMDB',
+  MEDIA_ADS = 'MEDIA_ADS',
+  
+  // Sector 4: DevOps Shard (Automation)
+  DEVOPS_WORKFLOW = 'DEVOPS_WORKFLOW',
+  DEVOPS_DEPLOY = 'DEVOPS_DEPLOY',
+  DEVOPS_GCS = 'DEVOPS_GCS',
+  EDITOR = 'EDITOR',
+  WORKSPACE = 'WORKSPACE',
   GITHUB = 'GITHUB',
-  PLUGINS = 'PLUGINS',
-  GCS = 'GCS',
-  FIGMA = 'FIGMA',
-  DRIVE = 'DRIVE',
   BLOB = 'BLOB'
 }

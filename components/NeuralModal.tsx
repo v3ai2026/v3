@@ -1,30 +1,8 @@
-
 import React, { useEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 
-/** 
- * NeuralModal Transition Protocols 
- * fade: Standard opacity shift
- * slide: Enterprise-grade vertical entrance
- * zoom: Dynamic scaling effect
- * fadeSlideIn: High-fidelity cinematic motion with blur
- */
 export type ModalTransition = 'slide' | 'fade' | 'zoom' | 'fadeSlideIn';
-
-/** 
- * NeuralModal Sizing Protocols 
- */
 export type ModalSize = 'sm' | 'md' | 'lg' | 'xl' | 'full';
-
-interface NeuralModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  title: string;
-  children: React.ReactNode;
-  footer?: React.ReactNode;
-  transition?: ModalTransition;
-  size?: ModalSize;
-}
 
 const SIZE_MAP: Record<ModalSize, string> = {
   sm: 'max-w-md',
@@ -34,10 +12,6 @@ const SIZE_MAP: Record<ModalSize, string> = {
   full: 'max-w-[95vw] h-[92vh]',
 };
 
-/** 
- * Protocol Transition Map
- * Consolidates all Tailwind CSS animation bindings defined in index.html
- */
 const TRANSITION_MAP: Record<ModalTransition, string> = {
   slide: 'animate-modal-slide',
   fade: 'animate-modal-fade',
@@ -45,11 +19,15 @@ const TRANSITION_MAP: Record<ModalTransition, string> = {
   fadeSlideIn: 'animate-modal-fade-slide-in',
 };
 
-/**
- * NeuralModal: The primary dialogue orchestration shard for IntelliBuild Studio.
- * Optimized for high-performance AI agent interactions.
- */
-export const NeuralModal: React.FC<NeuralModalProps> = ({
+export const NeuralModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+  footer?: React.ReactNode;
+  transition?: ModalTransition;
+  size?: ModalSize;
+}> = ({
   isOpen,
   onClose,
   title,
@@ -65,54 +43,38 @@ export const NeuralModal: React.FC<NeuralModalProps> = ({
     portalRoot.current = document.getElementById('modal-root');
   }, []);
 
-  /** 
-   * Strict Keyboard Isolation Protocol
-   * Ensures focus remains trapped within the modal context during active sessions.
-   */
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      onClose();
-      return;
-    }
-
+    if (e.key === 'Escape') onClose();
     if (e.key === 'Tab' && modalRef.current) {
-      const focusableSelectors = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
-      const elements = Array.from(modalRef.current.querySelectorAll(focusableSelectors)) as HTMLElement[];
-      const focusables = elements.filter(el => !el.hasAttribute('disabled') && el.offsetParent !== null);
-      
-      if (focusables.length === 0) return;
-      
-      const first = focusables[0];
-      const last = focusables[focusables.length - 1];
+      const focusableElements = modalRef.current.querySelectorAll(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      const firstElement = focusableElements[0] as HTMLElement;
+      const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
 
-      if (e.shiftKey && document.activeElement === first) {
-        last.focus();
-        e.preventDefault();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        first.focus();
-        e.preventDefault();
+      if (e.shiftKey) {
+        if (document.activeElement === firstElement) {
+          lastElement.focus();
+          e.preventDefault();
+        }
+      } else {
+        if (document.activeElement === lastElement) {
+          firstElement.focus();
+          e.preventDefault();
+        }
       }
     }
   }, [onClose]);
 
   useEffect(() => {
     if (isOpen) {
-      const originalStyle = window.getComputedStyle(document.body).overflow;
       document.body.style.overflow = 'hidden';
       window.addEventListener('keydown', handleKeyDown);
-
-      // Automated Focus Targeting
-      const timer = setTimeout(() => {
-        if (modalRef.current) {
-          const firstFocusable = modalRef.current.querySelector<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-          (firstFocusable || modalRef.current).focus();
-        }
-      }, 150);
-
+      // Accessibility: Focus the modal surface on open
+      setTimeout(() => modalRef.current?.focus(), 50);
       return () => {
-        document.body.style.overflow = originalStyle;
+        document.body.style.overflow = 'unset';
         window.removeEventListener('keydown', handleKeyDown);
-        clearTimeout(timer);
       };
     }
   }, [isOpen, handleKeyDown]);
@@ -123,69 +85,43 @@ export const NeuralModal: React.FC<NeuralModalProps> = ({
   if (!isOpen || !portalRoot.current) return null;
 
   return createPortal(
-    <div 
-      className="fixed inset-0 z-[5000] flex items-center justify-center p-6 md:p-12 pointer-events-none"
-      role="presentation"
-    >
-      {/* Cinematic Backdrop Shard */}
+    <div className="fixed inset-0 z-[5000] flex items-center justify-center p-4 md:p-12 pointer-events-none">
       <div 
-        className="fixed inset-0 animate-backdrop backdrop-blur-3xl cursor-pointer pointer-events-auto"
-        onClick={onClose}
+        className="fixed inset-0 animate-backdrop backdrop-blur-2xl bg-black/40 cursor-pointer pointer-events-auto" 
+        onClick={onClose} 
         aria-hidden="true"
       />
-
-      {/* Primary Dialogue Surface Shard */}
       <div
         ref={modalRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="neural-modal-title"
         tabIndex={-1}
-        className={`relative w-full ${sizeClass} bg-[#020420] border border-[#1a1e43] rounded-[3rem] shadow-[0_0_120px_rgba(0,0,0,0.9)] flex flex-col overflow-hidden outline-none pointer-events-auto transition-transform duration-500 ease-out ${transitionClass}`}
+        className={`relative w-full ${sizeClass} bg-[#020420] border border-[#1a1e43] rounded-3xl md:rounded-[3rem] shadow-2xl flex flex-col overflow-hidden outline-none pointer-events-auto max-h-[90vh] ${transitionClass}`}
       >
-        {/* Shard Navigation Protocol */}
-        <header className="flex items-center justify-between px-10 py-8 border-b border-[#1a1e43] bg-black/50 z-20">
-          <div className="flex items-center gap-4">
-            <div className="w-3 h-3 rounded-full bg-[#00DC82] shadow-[0_0_12px_#00DC82] animate-pulse" />
-            <h2 id="neural-modal-title" className="text-[12px] font-black text-[#00DC82] uppercase tracking-[0.6em] leading-none">
+        <header className="flex items-center justify-between px-6 md:px-10 py-6 md:py-8 border-b border-[#1a1e43] bg-black/50 z-20 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-2 h-2 rounded-full bg-[#00DC82] shadow-[0_0_12px_#00DC82] animate-pulse" />
+            <h2 id="neural-modal-title" className="text-[10px] md:text-[12px] font-black text-[#00DC82] uppercase tracking-[0.3em] md:tracking-[0.6em] truncate">
               {title}
             </h2>
           </div>
           <button 
-            onClick={onClose}
-            className="text-white/20 hover:text-[#00DC82] transition-all p-3 rounded-2xl hover:bg-white/5 active:scale-90"
-            aria-label="Terminate dialogue shard"
+            onClick={onClose} 
+            className="text-white/20 hover:text-[#00DC82] p-2 transition-colors rounded-lg hover:bg-white/5"
+            aria-label="Close modal"
           >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4">
-              <path d="M18 6L6 18M6 6l12 12" />
-            </svg>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4"><path d="M18 6L6 18M6 6l12 12" /></svg>
           </button>
         </header>
-
-        {/* Shard Intellectual Core */}
-        <div className="flex-1 p-12 text-[15px] font-medium text-slate-400 leading-[1.8] overflow-y-auto custom-scrollbar bg-[#020420]/80">
+        <div className="flex-1 p-6 md:p-12 text-sm text-slate-400 overflow-y-auto custom-scrollbar bg-[#020420]/80">
           {children}
         </div>
-
-        {/* Shard Command Console */}
-        <footer className="px-10 py-8 border-t border-[#1a1e43] bg-black/50 flex justify-end items-center gap-6 z-20">
-          {footer ? footer : (
-            <>
-              <button 
-                onClick={onClose}
-                className="px-8 py-4 bg-white/5 border border-white/10 text-white/40 text-[11px] font-black uppercase tracking-[0.3em] rounded-xl hover:bg-white/10 transition-all"
-              >
-                Abort
-              </button>
-              <button 
-                onClick={onClose}
-                className="px-10 py-4 bg-nuxt-gradient text-black text-[11px] font-black uppercase tracking-[0.4em] rounded-xl shadow-[0_0_30px_rgba(0,220,130,0.3)] hover:brightness-110 active:scale-95 transition-all outline-none focus:ring-2 focus:ring-[#00DC82]/50"
-              >
-                Commit Shard
-              </button>
-            </>
-          )}
-        </footer>
+        {footer && (
+          <footer className="px-6 md:px-10 py-6 md:py-8 border-t border-[#1a1e43] bg-black/50 shrink-0">
+            {footer}
+          </footer>
+        )}
       </div>
     </div>,
     portalRoot.current
