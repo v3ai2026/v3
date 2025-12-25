@@ -1,5 +1,6 @@
 {
   "name": "studio-agent-os",
+  "description": "AI 全栈开发与营销自动化平台 - 集成代码生成、多平台广告、AR体验和智能客服的超级AI系统",
   "private": true,
   "version": "0.0.0",
   "type": "module",
