@@ -819,7 +819,7 @@ const App: React.FC = () => {
         </div>
       </main>
 
-      <NeuralModal isOpen={isConfigOpen} onClose={() => setIsConfigOpen(false)} title="System Protocols" transition="slide" size={isMobile ? 'full' : 'md'}>
+      <NeuralModal isOpen={isConfigOpen} onClose={() => setIsConfigOpen(false)} title="System Protocols" size={isMobile ? 'full' : 'md'}>
         <div className="space-y-8 md:space-y-12">
           <div className="space-y-4 md:space-y-6">
             <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2">Neural Temperature</label>

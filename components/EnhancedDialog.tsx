@@ -28,7 +28,6 @@ export const NeuralModal: React.FC<{
   title: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
-  transition?: 'slide' | 'fade' | 'zoom' | 'fadeSlideIn';
   size?: ModalSize;
 }> = ({
   isOpen,
@@ -42,10 +41,13 @@ export const NeuralModal: React.FC<{
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
-      return () => {
-        document.body.style.overflow = 'unset';
-      };
+    } else {
+      document.body.style.overflow = 'unset';
     }
+    
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
   }, [isOpen]);
 
   return (
