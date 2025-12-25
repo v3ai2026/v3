@@ -17,7 +17,12 @@ import {
   NeuralSpinner,
   ProgressBar
 } from './components/UIElements';
-import { GeneratedFile, TabType, ModelConfig, GenerationResult, AIAgent, DeploymentStatus } from './types';
+import { GeneratedFile, TabType, ModelConfig, GenerationResult, AIAgent, DeploymentStatus, Product3D, ARProduct, VirtualStore } from './types';
+import { Product3DViewer } from './components/3d/Product3DViewer';
+import { VirtualStoreScene } from './components/3d/VirtualStoreScene';
+import { ARGlassesTryOn } from './components/ar/ARGlassesTryOn';
+import { BodyAnalyzer } from './components/ai/BodyAnalyzer';
+import { PhotoCapture } from './components/social/PhotoCapture';
 
 const INITIAL_SYSTEM = `你是一个顶级进化级全栈 AI 编排系统（DeepMind 级架构师）。正在操作分布式代理集群。风格：奢华深色，Nuxt 翠绿。优先移动端适配。`;
 
@@ -90,6 +95,99 @@ const App: React.FC = () => {
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+
+  // AR/3D Virtual Store State
+  const [selectedARProduct, setSelectedARProduct] = useState<ARProduct | null>(null);
+  const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
+  const [currentStore, setCurrentStore] = useState<VirtualStore | null>(null);
+  const [arProducts] = useState<ARProduct[]>([
+    {
+      id: 'glasses-1',
+      name: 'Neural Glasses Pro',
+      description: 'Smart AR glasses with AI features',
+      modelUrl: '/models/glasses1.glb',
+      modelFormat: 'GLB',
+      category: 'accessories',
+      price: 299,
+      variants: [
+        { id: 'v1', name: 'Black', type: 'color', value: 'Black', hexColor: '#000000' },
+        { id: 'v2', name: 'Silver', type: 'color', value: 'Silver', hexColor: '#C0C0C0' }
+      ],
+      arEnabled: true,
+      arType: 'face',
+      scale: [1, 1, 1],
+      offset: [0, 0, 0]
+    },
+    {
+      id: 'glasses-2',
+      name: 'Retro Vision',
+      description: 'Classic style with modern tech',
+      modelUrl: '/models/glasses2.glb',
+      modelFormat: 'GLB',
+      category: 'accessories',
+      price: 199,
+      variants: [
+        { id: 'v3', name: 'Gold', type: 'color', value: 'Gold', hexColor: '#FFD700' },
+        { id: 'v4', name: 'Rose Gold', type: 'color', value: 'Rose Gold', hexColor: '#B76E79' }
+      ],
+      arEnabled: true,
+      arType: 'face',
+      scale: [1, 1, 1],
+      offset: [0, 0, 0]
+    }
+  ]);
+
+  const [demo3DProducts] = useState<Product3D[]>([
+    {
+      id: 'product-1',
+      name: 'Smart Watch X1',
+      description: 'Next-gen wearable technology',
+      modelUrl: '/models/watch.glb',
+      modelFormat: 'GLB',
+      category: 'electronics',
+      price: 499,
+      variants: [
+        { id: 'w1', name: 'Space Gray', type: 'color', value: 'Space Gray', hexColor: '#3A3A3C' },
+        { id: 'w2', name: 'Silver', type: 'color', value: 'Silver', hexColor: '#E5E5EA' }
+      ]
+    },
+    {
+      id: 'product-2',
+      name: 'Luxury Sofa',
+      description: 'Premium comfort furniture',
+      modelUrl: '/models/sofa.glb',
+      modelFormat: 'GLB',
+      category: 'furniture',
+      price: 1299,
+      variants: [
+        { id: 's1', name: 'Leather', type: 'material', value: 'Leather' },
+        { id: 's2', name: 'Fabric', type: 'material', value: 'Fabric' }
+      ]
+    }
+  ]);
+
+  useEffect(() => {
+    // Initialize demo virtual store
+    const demoStore: VirtualStore = {
+      id: 'store-1',
+      name: 'Neural Tech Store',
+      theme: 'tech',
+      sceneUrl: '/scenes/tech-store.glb',
+      products: demo3DProducts,
+      layout: {
+        shelves: [],
+        displays: [],
+        lighting: {
+          ambient: { intensity: 0.5, color: '#ffffff' },
+          directional: [
+            { intensity: 1, color: '#ffffff', position: [10, 10, 5] }
+          ],
+          environment: 'studio'
+        }
+      }
+    };
+    setCurrentStore(demoStore);
+  }, []);
 
   const startRecording = async () => {
     try {
@@ -313,6 +411,9 @@ const App: React.FC = () => {
           <SidebarItem icon="✨" label="Build" active={activeTab === TabType.CREATION_BUILDER} onClick={() => setActiveTab(TabType.CREATION_BUILDER)} />
           <SidebarItem icon="🤖" label="Agents" active={activeTab === TabType.AGENT_MANAGER} onClick={() => setActiveTab(TabType.AGENT_MANAGER)} />
           <SidebarItem icon="🎨" label="Figma" active={activeTab === TabType.DESIGN_FIGMA} onClick={() => setActiveTab(TabType.DESIGN_FIGMA)} />
+          <SidebarItem icon="👓" label="AR Try-On" active={activeTab === TabType.AR_TRY_ON} onClick={() => setActiveTab(TabType.AR_TRY_ON)} />
+          <SidebarItem icon="🏪" label="3D Store" active={activeTab === TabType.AR_VIRTUAL_STORE} onClick={() => setActiveTab(TabType.AR_VIRTUAL_STORE)} />
+          <SidebarItem icon="📦" label="3D View" active={activeTab === TabType.PRODUCT_3D_VIEWER} onClick={() => setActiveTab(TabType.PRODUCT_3D_VIEWER)} />
           <SidebarItem icon="☁️" label="GCS" active={activeTab === TabType.DEVOPS_GCS} onClick={() => setActiveTab(TabType.DEVOPS_GCS)} />
           <SidebarItem icon="💠" label="Workspace" active={activeTab === TabType.WORKSPACE} onClick={() => setActiveTab(TabType.WORKSPACE)} />
           <SidebarItem icon="🚀" label="Deploy" active={activeTab === TabType.DEVOPS_DEPLOY} onClick={() => setActiveTab(TabType.DEVOPS_DEPLOY)} />
@@ -326,8 +427,8 @@ const App: React.FC = () => {
       {isMobile && (
         <nav className="fixed bottom-0 left-0 right-0 h-16 bg-[#020420]/90 backdrop-blur-xl border-t border-[#1a1e43] z-[100] flex items-center justify-around px-2 mobile-safe-bottom">
           <SidebarItem icon="✨" label="Build" collapsed active={activeTab === TabType.CREATION_BUILDER} onClick={() => setActiveTab(TabType.CREATION_BUILDER)} />
-          <SidebarItem icon="🤖" label="Agents" collapsed active={activeTab === TabType.AGENT_MANAGER} onClick={() => setActiveTab(TabType.AGENT_MANAGER)} />
-          <SidebarItem icon="☁️" label="GCS" collapsed active={activeTab === TabType.DEVOPS_GCS} onClick={() => setActiveTab(TabType.DEVOPS_GCS)} />
+          <SidebarItem icon="👓" label="AR" collapsed active={activeTab === TabType.AR_TRY_ON} onClick={() => setActiveTab(TabType.AR_TRY_ON)} />
+          <SidebarItem icon="🏪" label="Store" collapsed active={activeTab === TabType.AR_VIRTUAL_STORE} onClick={() => setActiveTab(TabType.AR_VIRTUAL_STORE)} />
           <SidebarItem icon="💠" label="Space" collapsed active={activeTab === TabType.WORKSPACE} onClick={() => setActiveTab(TabType.WORKSPACE)} />
         </nav>
       )}
@@ -765,6 +866,99 @@ const App: React.FC = () => {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* AR TRY-ON TAB */}
+          {activeTab === TabType.AR_TRY_ON && (
+            <div className="min-h-full p-4 md:p-12 animate-modal-fade max-w-7xl mx-auto space-y-8 pb-32">
+              <div className="text-center md:text-left space-y-4">
+                <h2 className="text-4xl md:text-6xl font-black text-white tracking-tighter uppercase leading-none">AR Try-On</h2>
+                <p className="text-slate-500 font-black uppercase tracking-widest text-[10px]">Virtual Reality Shopping Experience</p>
+              </div>
+
+              {!capturedPhoto ? (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  {/* AR Camera View */}
+                  <div className="lg:col-span-2">
+                    <GlassCard className="p-0 overflow-hidden">
+                      <ARGlassesTryOn
+                        products={arProducts}
+                        onCapture={(imageData) => setCapturedPhoto(imageData)}
+                        className="h-[600px]"
+                      />
+                    </GlassCard>
+                  </div>
+
+                  {/* Body Analyzer */}
+                  <div className="lg:col-span-1">
+                    <GlassCard className="p-6">
+                      <BodyAnalyzer />
+                    </GlassCard>
+                  </div>
+                </div>
+              ) : (
+                <GlassCard className="max-w-2xl mx-auto p-6">
+                  <PhotoCapture
+                    imageData={capturedPhoto}
+                    onShare={(platform) => {
+                      console.log('Share to:', platform);
+                      alert(`Sharing to ${platform}!`);
+                    }}
+                    onClose={() => setCapturedPhoto(null)}
+                    className="h-[600px]"
+                  />
+                </GlassCard>
+              )}
+            </div>
+          )}
+
+          {/* VIRTUAL STORE TAB */}
+          {activeTab === TabType.AR_VIRTUAL_STORE && currentStore && (
+            <div className="h-full animate-modal-fade">
+              <VirtualStoreScene
+                store={currentStore}
+                onProductClick={(product) => {
+                  console.log('Product clicked:', product);
+                  setSelectedARProduct(product as ARProduct);
+                }}
+              />
+            </div>
+          )}
+
+          {/* 3D PRODUCT VIEWER TAB */}
+          {activeTab === TabType.PRODUCT_3D_VIEWER && (
+            <div className="min-h-full p-4 md:p-12 animate-modal-fade max-w-7xl mx-auto space-y-8 pb-32">
+              <div className="text-center md:text-left space-y-4">
+                <h2 className="text-4xl md:text-6xl font-black text-white tracking-tighter uppercase leading-none">3D Product Viewer</h2>
+                <p className="text-slate-500 font-black uppercase tracking-widest text-[10px]">Interactive 360° Product Experience</p>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {demo3DProducts.map((product) => (
+                  <GlassCard key={product.id} className="p-6 space-y-4">
+                    <div className="space-y-2">
+                      <h3 className="text-2xl font-black text-white">{product.name}</h3>
+                      <p className="text-sm text-slate-400">{product.description}</p>
+                      <div className="flex items-center justify-between pt-2">
+                        <span className="text-3xl font-black text-[#00DC82]">${product.price}</span>
+                        <button className="px-6 py-2 rounded-xl bg-[#00DC82] text-black font-bold text-sm hover:bg-[#00DC82]/80 transition-all">
+                          Add to Cart
+                        </button>
+                      </div>
+                    </div>
+                    <Product3DViewer
+                      product={product}
+                      onVariantChange={(variant) => console.log('Variant changed:', variant)}
+                      onScreenshot={(imageData) => {
+                        console.log('Screenshot taken');
+                        setCapturedPhoto(imageData);
+                      }}
+                      className="h-[500px]"
+                    />
+                  </GlassCard>
+                ))}
+              </div>
             </div>
           )}
         </div>

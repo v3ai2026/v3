@@ -85,5 +85,103 @@ export enum TabType {
   EDITOR = 'EDITOR',
   WORKSPACE = 'WORKSPACE',
   GITHUB = 'GITHUB',
-  BLOB = 'BLOB'
+  BLOB = 'BLOB',
+  
+  // Sector 6: 3D/AR Virtual Store
+  AR_VIRTUAL_STORE = 'AR_VIRTUAL_STORE',
+  AR_TRY_ON = 'AR_TRY_ON',
+  PRODUCT_3D_VIEWER = 'PRODUCT_3D_VIEWER',
+}
+
+// 3D/AR Related Types
+export interface Product3D {
+  id: string;
+  name: string;
+  description: string;
+  modelUrl: string;
+  modelFormat: 'GLB' | 'GLTF' | 'OBJ' | 'FBX';
+  thumbnailUrl?: string;
+  variants: ProductVariant[];
+  category: 'clothing' | 'accessories' | 'furniture' | 'electronics';
+  price: number;
+}
+
+export interface ProductVariant {
+  id: string;
+  name: string;
+  type: 'color' | 'material' | 'size' | 'texture';
+  value: string;
+  modelUrl?: string;
+  textureUrl?: string;
+  hexColor?: string;
+}
+
+export interface ARSession {
+  id: string;
+  type: 'try-on' | 'furniture' | 'measurement';
+  status: 'idle' | 'active' | 'paused' | 'ended';
+  startTime: number;
+  endTime?: number;
+  capturedImages?: string[];
+}
+
+export interface FaceLandmark {
+  x: number;
+  y: number;
+  z: number;
+}
+
+export interface BodyPose {
+  landmarks: FaceLandmark[];
+  confidence: number;
+}
+
+export interface ARProduct extends Product3D {
+  arEnabled: boolean;
+  arType: 'face' | 'body' | 'hand' | 'ground';
+  scale: [number, number, number];
+  offset: [number, number, number];
+}
+
+export interface VirtualStore {
+  id: string;
+  name: string;
+  theme: 'luxury' | 'sport' | 'home' | 'tech';
+  sceneUrl: string;
+  products: Product3D[];
+  layout: StoreLayout;
+}
+
+export interface StoreLayout {
+  shelves: ShelfPosition[];
+  displays: DisplayPosition[];
+  lighting: LightingConfig;
+}
+
+export interface ShelfPosition {
+  id: string;
+  position: [number, number, number];
+  rotation: [number, number, number];
+  products: string[]; // product IDs
+}
+
+export interface DisplayPosition {
+  id: string;
+  position: [number, number, number];
+  rotation: [number, number, number];
+  type: 'featured' | 'window' | 'podium';
+  productId: string;
+}
+
+export interface LightingConfig {
+  ambient: {
+    intensity: number;
+    color: string;
+  };
+  directional: {
+    intensity: number;
+    color: string;
+    position: [number, number, number];
+  }[];
+  environment: 'studio' | 'indoor' | 'outdoor';
 }
