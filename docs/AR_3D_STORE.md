@@ -245,8 +245,8 @@ const customStore: VirtualStore = {
 
 ## 联系方式
 
-- GitHub: [v3ai2026/v3](https://github.com/v3ai2026/v3)
-- Issues: [报告问题](https://github.com/v3ai2026/v3/issues)
+- GitHub: [VisionCommerce](https://github.com/visioncommerce/visioncommerce)
+- Issues: [报告问题](https://github.com/visioncommerce/visioncommerce/issues)
 
 ---
 
