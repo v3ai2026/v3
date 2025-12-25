@@ -87,3 +87,111 @@ export enum TabType {
   GITHUB = 'GITHUB',
   BLOB = 'BLOB'
 }
+
+// Advertising System Types
+export type AdPlatform = 
+  | 'google_ads' 
+  | 'facebook_ads' 
+  | 'tiktok_ads' 
+  | 'douyin_ads' 
+  | 'kuaishou_ads' 
+  | 'xiaohongshu_ads' 
+  | 'wechat_ads' 
+  | 'baidu_ads' 
+  | 'tencent_ads' 
+  | 'alimama_ads';
+
+export type AdType = 
+  | 'search' 
+  | 'display' 
+  | 'video' 
+  | 'shopping' 
+  | 'dynamic' 
+  | 'retargeting' 
+  | 'app_promotion';
+
+export type CampaignStatus = 
+  | 'active' 
+  | 'paused' 
+  | 'completed' 
+  | 'draft' 
+  | 'optimizing' 
+  | 'error';
+
+export type BiddingStrategy = 
+  | 'target_cpa' 
+  | 'target_roas' 
+  | 'maximize_conversions' 
+  | 'maximize_clicks' 
+  | 'manual_cpc';
+
+export interface AdCampaign {
+  id: string;
+  name: string;
+  platform: AdPlatform;
+  adType: AdType;
+  status: CampaignStatus;
+  budget: {
+    daily: number;
+    total: number;
+    spent: number;
+    currency: string;
+  };
+  performance: {
+    impressions: number;
+    clicks: number;
+    conversions: number;
+    cpc: number;
+    cpa: number;
+    roas: number;
+    ctr: number;
+  };
+  targeting: {
+    locations: string[];
+    ageRange: [number, number];
+    gender?: 'male' | 'female' | 'all';
+    interests: string[];
+    keywords?: string[];
+  };
+  biddingStrategy: BiddingStrategy;
+  schedule: {
+    startDate: string;
+    endDate?: string;
+    timeSlots?: string[];
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdCreative {
+  id: string;
+  campaignId: string;
+  type: 'text' | 'image' | 'video';
+  headline: string;
+  description: string;
+  callToAction: string;
+  imageUrl?: string;
+  videoUrl?: string;
+  thumbnailUrl?: string;
+  aiGenerated: boolean;
+  performanceScore?: number;
+}
+
+export interface AIInsight {
+  id: string;
+  type: 'opportunity' | 'warning' | 'suggestion';
+  priority: 'high' | 'medium' | 'low';
+  title: string;
+  description: string;
+  action?: string;
+  campaignId?: string;
+  timestamp: string;
+}
+
+export interface AdPlatformCredentials {
+  platform: AdPlatform;
+  apiKey?: string;
+  accessToken?: string;
+  accountId?: string;
+  isConnected: boolean;
+}

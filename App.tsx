@@ -18,6 +18,10 @@ import {
   ProgressBar
 } from './components/UIElements';
 import { GeneratedFile, TabType, ModelConfig, GenerationResult, AIAgent, DeploymentStatus } from './types';
+import { AdsDashboard } from './components/ads/AdsDashboard';
+import { AIAdCreator } from './components/ads/AIAdCreator';
+import { UnifiedAdsService } from './services/ads/unifiedAdsService';
+import { AICopywritingService } from './services/ads/aiCopywritingService';
 
 const INITIAL_SYSTEM = `你是一个顶级进化级全栈 AI 编排系统（DeepMind 级架构师）。正在操作分布式代理集群。风格：奢华深色，Nuxt 翠绿。优先移动端适配。`;
 
@@ -90,6 +94,21 @@ const App: React.FC = () => {
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+
+  // Advertising System State
+  const [adsService] = useState(() => new UnifiedAdsService());
+  const [copywritingService] = useState(() => new AICopywritingService());
+  const [adsView, setAdsView] = useState<'dashboard' | 'create'>('dashboard');
+  const [adsInitialized, setAdsInitialized] = useState(false);
+
+  // Initialize ads system with mock data on first load
+  useEffect(() => {
+    if (!adsInitialized && activeTab === TabType.MEDIA_ADS) {
+      adsService.seedMockData().then(() => {
+        setAdsInitialized(true);
+      });
+    }
+  }, [activeTab, adsInitialized]);
 
   const startRecording = async () => {
     try {
@@ -312,6 +331,7 @@ const App: React.FC = () => {
           <div className="w-14 h-14 rounded-2xl bg-nuxt-gradient flex items-center justify-center text-black font-black text-2xl mb-10 cursor-pointer shadow-[0_0_20px_rgba(0,220,130,0.3)]" onClick={() => setActiveTab(TabType.CREATION_BUILDER)}>I</div>
           <SidebarItem icon="✨" label="Build" active={activeTab === TabType.CREATION_BUILDER} onClick={() => setActiveTab(TabType.CREATION_BUILDER)} />
           <SidebarItem icon="🤖" label="Agents" active={activeTab === TabType.AGENT_MANAGER} onClick={() => setActiveTab(TabType.AGENT_MANAGER)} />
+          <SidebarItem icon="📢" label="Ads" active={activeTab === TabType.MEDIA_ADS} onClick={() => setActiveTab(TabType.MEDIA_ADS)} />
           <SidebarItem icon="🎨" label="Figma" active={activeTab === TabType.DESIGN_FIGMA} onClick={() => setActiveTab(TabType.DESIGN_FIGMA)} />
           <SidebarItem icon="☁️" label="GCS" active={activeTab === TabType.DEVOPS_GCS} onClick={() => setActiveTab(TabType.DEVOPS_GCS)} />
           <SidebarItem icon="💠" label="Workspace" active={activeTab === TabType.WORKSPACE} onClick={() => setActiveTab(TabType.WORKSPACE)} />
@@ -327,8 +347,8 @@ const App: React.FC = () => {
         <nav className="fixed bottom-0 left-0 right-0 h-16 bg-[#020420]/90 backdrop-blur-xl border-t border-[#1a1e43] z-[100] flex items-center justify-around px-2 mobile-safe-bottom">
           <SidebarItem icon="✨" label="Build" collapsed active={activeTab === TabType.CREATION_BUILDER} onClick={() => setActiveTab(TabType.CREATION_BUILDER)} />
           <SidebarItem icon="🤖" label="Agents" collapsed active={activeTab === TabType.AGENT_MANAGER} onClick={() => setActiveTab(TabType.AGENT_MANAGER)} />
+          <SidebarItem icon="📢" label="Ads" collapsed active={activeTab === TabType.MEDIA_ADS} onClick={() => setActiveTab(TabType.MEDIA_ADS)} />
           <SidebarItem icon="☁️" label="GCS" collapsed active={activeTab === TabType.DEVOPS_GCS} onClick={() => setActiveTab(TabType.DEVOPS_GCS)} />
-          <SidebarItem icon="💠" label="Space" collapsed active={activeTab === TabType.WORKSPACE} onClick={() => setActiveTab(TabType.WORKSPACE)} />
         </nav>
       )}
 
@@ -340,12 +360,47 @@ const App: React.FC = () => {
           <div className="flex items-center gap-2 md:gap-4">
             {!isMobile && <NeuralSwitch checked={useDeepReasoning} onChange={setUseDeepReasoning} label="Deep Reasoning" />}
             <NeuralButton onClick={() => setIsAgentModalOpen(true)} size="xs" variant="primary" className={activeTab === TabType.AGENT_MANAGER ? '' : 'hidden'}>Add Agent</NeuralButton>
+            {activeTab === TabType.MEDIA_ADS && (
+              <div className="flex gap-2">
+                <NeuralButton 
+                  onClick={() => setAdsView('dashboard')} 
+                  size="xs" 
+                  variant={adsView === 'dashboard' ? 'primary' : 'secondary'}
+                >
+                  仪表板
+                </NeuralButton>
+                <NeuralButton 
+                  onClick={() => setAdsView('create')} 
+                  size="xs" 
+                  variant={adsView === 'create' ? 'primary' : 'secondary'}
+                >
+                  创建广告
+                </NeuralButton>
+              </div>
+            )}
             <NeuralButton onClick={() => setIsConfigOpen(true)} size="sm" variant="ghost" className="hidden md:block">Protocols</NeuralButton>
           </div>
         </header>
 
         <div className={`flex-1 overflow-y-auto custom-scrollbar bg-[#020420] ${isMobile ? 'pb-20' : ''}`}>
           
+          {/* ADS TAB */}
+          {activeTab === TabType.MEDIA_ADS && (
+            <div className="h-full">
+              {adsView === 'dashboard' ? (
+                <AdsDashboard adsService={adsService} />
+              ) : (
+                <div className="p-4 md:p-12">
+                  <AIAdCreator 
+                    adsService={adsService} 
+                    copywritingService={copywritingService}
+                    onCampaignCreated={() => setAdsView('dashboard')}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
           {/* GCS TAB */}
           {activeTab === TabType.DEVOPS_GCS && (
             <div className="p-4 md:p-12 animate-modal-fade max-w-7xl mx-auto space-y-8 md:space-y-12">
