@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import Editor from '@monaco-editor/react';
 import { GoogleGenAI } from "@google/genai";
 import { generateFullStackProject, convertToColabNotebook, transcribeAudio, generateSpeech } from './services/geminiService';
@@ -17,7 +18,15 @@ import {
   NeuralSpinner,
   ProgressBar
 } from './components/UIElements';
+import { ParticleBackground } from './components/effects/ParticleBackground';
+import { AnimatedGrid } from './components/effects/AnimatedGrid';
+import { ScanLines } from './components/effects/ScanLines';
+import { GlowCursor } from './components/effects/GlowCursor';
+import { RippleEffect } from './components/effects/RippleEffect';
+import { ScrollProgress } from './components/effects/ScrollProgress';
+import { AnimatedGradient } from './components/effects/AnimatedGradient';
 import { GeneratedFile, TabType, ModelConfig, GenerationResult, AIAgent, DeploymentStatus } from './types';
+import { fadeInUp, staggerContainer, staggerItem } from './utils/animations';
 
 const INITIAL_SYSTEM = `你是一个顶级进化级全栈 AI 编排系统（DeepMind 级架构师）。正在操作分布式代理集群。风格：奢华深色，Nuxt 翠绿。优先移动端适配。`;
 
@@ -306,10 +315,41 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-[#020420] text-white font-sans overflow-hidden flex-col md:flex-row">
+      {/* Background Effects */}
+      <AnimatedGradient />
+      <ParticleBackground />
+      <AnimatedGrid />
+      <ScanLines intensity={0.02} />
+      <GlowCursor />
+      <RippleEffect />
+      <ScrollProgress />
+
       {/* DESKTOP SIDEBAR */}
       {!isMobile && (
-        <nav className="w-24 border-r border-[#1a1e43] flex flex-col items-center py-10 gap-2 bg-[#020420] z-30 shadow-2xl shrink-0">
-          <div className="w-14 h-14 rounded-2xl bg-nuxt-gradient flex items-center justify-center text-black font-black text-2xl mb-10 cursor-pointer shadow-[0_0_20px_rgba(0,220,130,0.3)]" onClick={() => setActiveTab(TabType.CREATION_BUILDER)}>I</div>
+        <motion.nav 
+          className="w-24 border-r border-[#1a1e43] flex flex-col items-center py-10 gap-2 bg-[#020420] z-30 shadow-2xl shrink-0"
+          initial={{ x: -100, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <motion.div 
+            className="w-14 h-14 rounded-2xl bg-nuxt-gradient flex items-center justify-center text-black font-black text-2xl mb-10 cursor-pointer shadow-[0_0_20px_rgba(0,220,130,0.3)]" 
+            onClick={() => setActiveTab(TabType.CREATION_BUILDER)}
+            whileHover={{ scale: 1.1, rotate: 5 }}
+            whileTap={{ scale: 0.95 }}
+            animate={{
+              boxShadow: [
+                '0 0 20px rgba(0, 220, 130, 0.3)',
+                '0 0 30px rgba(0, 220, 130, 0.5)',
+                '0 0 20px rgba(0, 220, 130, 0.3)',
+              ],
+            }}
+            transition={{
+              boxShadow: { duration: 2, repeat: Infinity, ease: 'easeInOut' },
+            }}
+          >
+            I
+          </motion.div>
           <SidebarItem icon="✨" label="Build" active={activeTab === TabType.CREATION_BUILDER} onClick={() => setActiveTab(TabType.CREATION_BUILDER)} />
           <SidebarItem icon="🤖" label="Agents" active={activeTab === TabType.AGENT_MANAGER} onClick={() => setActiveTab(TabType.AGENT_MANAGER)} />
           <SidebarItem icon="🎨" label="Figma" active={activeTab === TabType.DESIGN_FIGMA} onClick={() => setActiveTab(TabType.DESIGN_FIGMA)} />
@@ -319,21 +359,31 @@ const App: React.FC = () => {
           <div className="mt-auto">
             <SidebarItem icon="⚙️" label="Config" active={false} onClick={() => setIsConfigOpen(true)} />
           </div>
-        </nav>
+        </motion.nav>
       )}
 
       {/* MOBILE BOTTOM NAV */}
       {isMobile && (
-        <nav className="fixed bottom-0 left-0 right-0 h-16 bg-[#020420]/90 backdrop-blur-xl border-t border-[#1a1e43] z-[100] flex items-center justify-around px-2 mobile-safe-bottom">
+        <motion.nav 
+          className="fixed bottom-0 left-0 right-0 h-16 bg-[#020420]/90 backdrop-blur-xl border-t border-[#1a1e43] z-[100] flex items-center justify-around px-2 mobile-safe-bottom"
+          initial={{ y: 100, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
+        >
           <SidebarItem icon="✨" label="Build" collapsed active={activeTab === TabType.CREATION_BUILDER} onClick={() => setActiveTab(TabType.CREATION_BUILDER)} />
           <SidebarItem icon="🤖" label="Agents" collapsed active={activeTab === TabType.AGENT_MANAGER} onClick={() => setActiveTab(TabType.AGENT_MANAGER)} />
           <SidebarItem icon="☁️" label="GCS" collapsed active={activeTab === TabType.DEVOPS_GCS} onClick={() => setActiveTab(TabType.DEVOPS_GCS)} />
           <SidebarItem icon="💠" label="Space" collapsed active={activeTab === TabType.WORKSPACE} onClick={() => setActiveTab(TabType.WORKSPACE)} />
-        </nav>
+        </motion.nav>
       )}
 
       <main className="flex-1 flex flex-col overflow-hidden relative">
-        <header className="h-16 md:h-20 border-b border-[#1a1e43] flex items-center justify-between px-4 md:px-12 bg-[#020420]/95 backdrop-blur-3xl z-40 shrink-0">
+        <motion.header 
+          className="h-16 md:h-20 border-b border-[#1a1e43] flex items-center justify-between px-4 md:px-12 bg-[#020420]/95 backdrop-blur-3xl z-40 shrink-0"
+          initial={{ y: -100, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1], delay: 0.1 }}
+        >
           <div className="flex items-center gap-2">
             <NeuralBadge variant="primary" pulse={true}>{isMobile ? activeTab.split('_').pop() : activeTab.replace('_', ' ')}</NeuralBadge>
           </div>
@@ -342,9 +392,17 @@ const App: React.FC = () => {
             <NeuralButton onClick={() => setIsAgentModalOpen(true)} size="xs" variant="primary" className={activeTab === TabType.AGENT_MANAGER ? '' : 'hidden'}>Add Agent</NeuralButton>
             <NeuralButton onClick={() => setIsConfigOpen(true)} size="sm" variant="ghost" className="hidden md:block">Protocols</NeuralButton>
           </div>
-        </header>
+        </motion.header>
 
-        <div className={`flex-1 overflow-y-auto custom-scrollbar bg-[#020420] ${isMobile ? 'pb-20' : ''}`}>
+        <AnimatePresence mode="wait">
+          <motion.div 
+            key={activeTab}
+            className={`flex-1 overflow-y-auto custom-scrollbar bg-[#020420] ${isMobile ? 'pb-20' : ''}`}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+          >
           
           {/* GCS TAB */}
           {activeTab === TabType.DEVOPS_GCS && (
@@ -430,76 +488,150 @@ const App: React.FC = () => {
 
           {/* AGENT MANAGER TAB */}
           {activeTab === TabType.AGENT_MANAGER && (
-            <div className="p-4 md:p-12 animate-modal-fade max-w-7xl mx-auto space-y-8 md:space-y-12">
-               <div className="text-center md:text-left space-y-4">
+            <div className="p-4 md:p-12 max-w-7xl mx-auto space-y-8 md:space-y-12">
+               <motion.div 
+                 className="text-center md:text-left space-y-4"
+                 initial={{ opacity: 0, y: -20 }}
+                 animate={{ opacity: 1, y: 0 }}
+                 transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+               >
                   <h2 className="text-4xl md:text-6xl font-black text-white tracking-tighter uppercase leading-none">Neural Registry</h2>
                   <p className="text-slate-500 font-black uppercase tracking-widest text-[10px]">Manage distributed autonomous intelligence shards</p>
-               </div>
+               </motion.div>
 
-               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {agents.map(agent => (
-                    <GlassCard key={agent.id} className="relative group p-8 space-y-6">
-                      <div className="flex items-start justify-between">
-                         <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-2xl">🤖</div>
-                         <NeuralBadge variant={agent.status === 'active' ? 'primary' : 'secondary'} pulse={agent.status === 'active'}>{agent.status}</NeuralBadge>
-                      </div>
-                      <div className="space-y-1">
-                         <h3 className="text-xl font-black text-white">{agent.name}</h3>
-                         <p className="text-[#00DC82] text-[10px] font-bold uppercase tracking-widest">{agent.role}</p>
-                      </div>
-                      <div className="pt-4 border-t border-white/5 space-y-3">
-                         <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-slate-500">
-                           <span>Model Specification</span>
-                           <span className="text-slate-300">{agent.model}</span>
-                         </div>
-                         <p className="text-slate-400 text-xs line-clamp-2 italic">"{agent.instruction}"</p>
-                      </div>
-                      <div className="flex gap-2 pt-4">
-                         <NeuralButton onClick={() => handleEditAgent(agent)} variant="secondary" size="xs" className="flex-1">Configure</NeuralButton>
-                         <NeuralButton onClick={() => handleRemoveAgent(agent.id)} variant="danger" size="xs">Decommission</NeuralButton>
-                      </div>
-                    </GlassCard>
+               <motion.div 
+                 className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+                 variants={staggerContainer}
+                 initial="hidden"
+                 animate="visible"
+               >
+                  {agents.map((agent, index) => (
+                    <motion.div key={agent.id} variants={staggerItem}>
+                      <GlassCard className="relative group p-8 space-y-6 h-full" hover>
+                        <div className="flex items-start justify-between">
+                           <motion.div 
+                             className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-2xl"
+                             whileHover={{ rotate: 360, scale: 1.1 }}
+                             transition={{ duration: 0.5 }}
+                           >
+                             🤖
+                           </motion.div>
+                           <NeuralBadge variant={agent.status === 'active' ? 'primary' : 'secondary'} pulse={agent.status === 'active'}>{agent.status}</NeuralBadge>
+                        </div>
+                        <div className="space-y-1">
+                           <h3 className="text-xl font-black text-white">{agent.name}</h3>
+                           <p className="text-[#00DC82] text-[10px] font-bold uppercase tracking-widest">{agent.role}</p>
+                        </div>
+                        <div className="pt-4 border-t border-white/5 space-y-3">
+                           <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-slate-500">
+                             <span>Model Specification</span>
+                             <span className="text-slate-300">{agent.model}</span>
+                           </div>
+                           <p className="text-slate-400 text-xs line-clamp-2 italic">"{agent.instruction}"</p>
+                        </div>
+                        <div className="flex gap-2 pt-4">
+                           <NeuralButton onClick={() => handleEditAgent(agent)} variant="secondary" size="xs" className="flex-1">Configure</NeuralButton>
+                           <NeuralButton onClick={() => handleRemoveAgent(agent.id)} variant="danger" size="xs">Decommission</NeuralButton>
+                        </div>
+                      </GlassCard>
+                    </motion.div>
                   ))}
                   
-                  <button 
+                  <motion.button 
                     onClick={() => { setEditingAgent(null); setAgentForm({ name: '', role: '', model: 'gemini-3-flash-preview', instruction: '' }); setIsAgentModalOpen(true); }}
-                    className="border-2 border-dashed border-[#1a1e43] rounded-[2rem] p-8 flex flex-col items-center justify-center gap-4 text-slate-600 hover:border-[#00DC82]/50 hover:text-[#00DC82] transition-all group"
+                    className="border-2 border-dashed border-[#1a1e43] rounded-[2rem] p-8 flex flex-col items-center justify-center gap-4 text-slate-600 transition-all group"
+                    variants={staggerItem}
+                    whileHover={{ 
+                      borderColor: 'rgba(0, 220, 130, 0.5)',
+                      color: '#00DC82',
+                      scale: 1.02,
+                    }}
+                    whileTap={{ scale: 0.98 }}
                   >
-                    <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center text-4xl group-hover:scale-110 transition-transform">+</div>
+                    <motion.div 
+                      className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center text-4xl"
+                      whileHover={{ scale: 1.2, rotate: 90 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      +
+                    </motion.div>
                     <span className="text-[10px] font-black uppercase tracking-widest">Initialize New Entity</span>
-                  </button>
-               </div>
+                  </motion.button>
+               </motion.div>
             </div>
           )}
 
           {/* GENESIS BUILDER WIZARD */}
           {activeTab === TabType.CREATION_BUILDER && (
-            <div className="min-h-full flex flex-col items-center justify-center p-4 md:p-20 animate-modal-fade">
+            <div className="min-h-full flex flex-col items-center justify-center p-4 md:p-20">
               {builderMode === 'CHOOSING' && (
-                <div className="max-w-6xl w-full space-y-8 md:space-y-16">
-                  <div className="text-center space-y-2 md:space-y-4">
-                    <h1 className="text-4xl md:text-8xl font-black tracking-tighter text-nuxt drop-shadow-2xl uppercase">Genesis</h1>
+                <motion.div 
+                  className="max-w-6xl w-full space-y-8 md:space-y-16"
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+                >
+                  <motion.div 
+                    className="text-center space-y-2 md:space-y-4"
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.6, delay: 0.2 }}
+                  >
+                    <motion.h1 
+                      className="text-4xl md:text-8xl font-black tracking-tighter text-nuxt drop-shadow-2xl uppercase"
+                      animate={{
+                        textShadow: [
+                          '0 0 20px rgba(0, 220, 130, 0.3)',
+                          '0 0 40px rgba(0, 220, 130, 0.6)',
+                          '0 0 20px rgba(0, 220, 130, 0.3)',
+                        ],
+                      }}
+                      transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+                    >
+                      Genesis
+                    </motion.h1>
                     <p className="text-slate-500 font-black uppercase tracking-[0.5em] md:tracking-[1em] text-[8px] md:text-[10px]">Select your creation protocol</p>
-                  </div>
+                  </motion.div>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-10">
-                    <GlassCard className="group cursor-pointer p-6 md:p-12 text-left space-y-4 md:space-y-8" onClick={() => setBuilderMode('ARCHITECT')}>
-                      <div className="w-12 h-12 md:w-20 md:h-20 rounded-xl md:rounded-[2rem] bg-nuxt-gradient flex items-center justify-center text-black text-2xl md:text-4xl shadow-2xl transition-transform group-hover:rotate-12">🏗️</div>
-                      <div className="space-y-2 md:space-y-3">
-                        <h3 className="text-xl md:text-3xl font-black text-white group-hover:text-[#00DC82] transition-colors">Master Architect</h3>
-                        <p className="text-slate-400 text-xs md:text-sm leading-relaxed">Full-stack intelligence. Design sophisticated E-commerce, SaaS, or marketplaces.</p>
-                      </div>
-                    </GlassCard>
+                  <motion.div 
+                    className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-10"
+                    variants={staggerContainer}
+                    initial="hidden"
+                    animate="visible"
+                  >
+                    <motion.div variants={staggerItem}>
+                      <GlassCard className="group cursor-pointer p-6 md:p-12 text-left space-y-4 md:space-y-8 h-full" hover onClick={() => setBuilderMode('ARCHITECT')}>
+                        <motion.div 
+                          className="w-12 h-12 md:w-20 md:h-20 rounded-xl md:rounded-[2rem] bg-nuxt-gradient flex items-center justify-center text-black text-2xl md:text-4xl shadow-2xl"
+                          whileHover={{ rotate: 12, scale: 1.1 }}
+                          transition={{ duration: 0.3 }}
+                        >
+                          🏗️
+                        </motion.div>
+                        <div className="space-y-2 md:space-y-3">
+                          <h3 className="text-xl md:text-3xl font-black text-white group-hover:text-[#00DC82] transition-colors">Master Architect</h3>
+                          <p className="text-slate-400 text-xs md:text-sm leading-relaxed">Full-stack intelligence. Design sophisticated E-commerce, SaaS, or marketplaces.</p>
+                        </div>
+                      </GlassCard>
+                    </motion.div>
 
-                    <GlassCard className="group cursor-pointer p-6 md:p-12 text-left space-y-4 md:space-y-8" onClick={() => setBuilderMode('INSTANT')}>
-                      <div className="w-12 h-12 md:w-20 md:h-20 rounded-xl md:rounded-[2rem] bg-white/5 border border-white/10 flex items-center justify-center text-2xl md:text-4xl shadow-2xl transition-transform group-hover:scale-110">⚡</div>
-                      <div className="space-y-2 md:space-y-3">
-                        <h3 className="text-xl md:text-3xl font-black text-white group-hover:text-[#00DC82] transition-colors">Instant Synthesis</h3>
-                        <p className="text-slate-400 text-xs md:text-sm leading-relaxed">Simple prompt execution. One sentence vision manifestation.</p>
-                      </div>
-                    </GlassCard>
-                  </div>
-                </div>
+                    <motion.div variants={staggerItem}>
+                      <GlassCard className="group cursor-pointer p-6 md:p-12 text-left space-y-4 md:space-y-8 h-full" hover onClick={() => setBuilderMode('INSTANT')}>
+                        <motion.div 
+                          className="w-12 h-12 md:w-20 md:h-20 rounded-xl md:rounded-[2rem] bg-white/5 border border-white/10 flex items-center justify-center text-2xl md:text-4xl shadow-2xl"
+                          whileHover={{ scale: 1.15, rotate: -5 }}
+                          transition={{ duration: 0.3 }}
+                        >
+                          ⚡
+                        </motion.div>
+                        <div className="space-y-2 md:space-y-3">
+                          <h3 className="text-xl md:text-3xl font-black text-white group-hover:text-[#00DC82] transition-colors">Instant Synthesis</h3>
+                          <p className="text-slate-400 text-xs md:text-sm leading-relaxed">Simple prompt execution. One sentence vision manifestation.</p>
+                        </div>
+                      </GlassCard>
+                    </motion.div>
+                  </motion.div>
+                </motion.div>
               )}
 
               {builderMode === 'ARCHITECT' && (
@@ -767,7 +899,8 @@ const App: React.FC = () => {
               )}
             </div>
           )}
-        </div>
+          </motion.div>
+        </AnimatePresence>
       </main>
 
       <NeuralModal isOpen={isConfigOpen} onClose={() => setIsConfigOpen(false)} title="System Protocols" transition="slide" size={isMobile ? 'full' : 'md'}>
