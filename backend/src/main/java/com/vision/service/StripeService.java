@@ -118,7 +118,11 @@ public class StripeService {
         com.stripe.model.Subscription stripeSubscription = 
             (com.stripe.model.Subscription) event.getDataObjectDeserializer().getObject().orElse(null);
         
-        if (stripeSubscription == null) return;
+        if (stripeSubscription == null || stripeSubscription.getItems() == null 
+                || stripeSubscription.getItems().getData().isEmpty()) {
+            log.warn("Subscription event has no items, skipping");
+            return;
+        }
 
         String customerId = stripeSubscription.getCustomer();
         User user = userRepository.findByStripeCustomerId(customerId);

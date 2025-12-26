@@ -2,8 +2,6 @@ package com.vision.controller;
 
 import com.vision.dto.ApiResponse;
 import com.vision.dto.UserDto;
-import com.vision.model.User;
-import com.vision.repository.UserRepository;
 import com.vision.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -19,11 +17,11 @@ import java.util.UUID;
 public class UserController {
 
     private final UserService userService;
-    private final UserRepository userRepository;
+    private final AuthHelper authHelper;
 
     @GetMapping("/profile")
     public ResponseEntity<ApiResponse<UserDto>> getProfile(Authentication authentication) {
-        UUID userId = getUserIdFromAuth(authentication);
+        UUID userId = authHelper.getUserIdFromAuth(authentication);
         UserDto user = userService.getUserProfile(userId);
         return ResponseEntity.ok(ApiResponse.success(user));
     }
@@ -32,7 +30,7 @@ public class UserController {
     public ResponseEntity<ApiResponse<UserDto>> updateProfile(
             @RequestBody UserDto dto,
             Authentication authentication) {
-        UUID userId = getUserIdFromAuth(authentication);
+        UUID userId = authHelper.getUserIdFromAuth(authentication);
         UserDto updatedUser = userService.updateUserProfile(userId, dto);
         return ResponseEntity.ok(ApiResponse.success("Profile updated successfully", updatedUser));
     }
@@ -41,18 +39,11 @@ public class UserController {
     public ResponseEntity<ApiResponse<Void>> updatePassword(
             @RequestBody Map<String, String> request,
             Authentication authentication) {
-        UUID userId = getUserIdFromAuth(authentication);
+        UUID userId = authHelper.getUserIdFromAuth(authentication);
         String currentPassword = request.get("currentPassword");
         String newPassword = request.get("newPassword");
         
         userService.updatePassword(userId, currentPassword, newPassword);
         return ResponseEntity.ok(ApiResponse.success("Password updated successfully", null));
-    }
-
-    private UUID getUserIdFromAuth(Authentication authentication) {
-        String email = authentication.getName();
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        return user.getId();
     }
 }

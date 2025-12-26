@@ -3,10 +3,9 @@ package com.vision.controller;
 import com.stripe.exception.SignatureVerificationException;
 import com.stripe.exception.StripeException;
 import com.vision.dto.ApiResponse;
+import com.vision.exception.ResourceNotFoundException;
 import com.vision.model.Subscription;
-import com.vision.model.User;
 import com.vision.repository.SubscriptionRepository;
-import com.vision.repository.UserRepository;
 import com.vision.service.StripeService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,14 +26,14 @@ public class SubscriptionController {
 
     private final StripeService stripeService;
     private final SubscriptionRepository subscriptionRepository;
-    private final UserRepository userRepository;
+    private final AuthHelper authHelper;
 
     @Value("${stripe.webhook-secret}")
     private String webhookSecret;
 
     @GetMapping("/current")
     public ResponseEntity<ApiResponse<Subscription>> getCurrentSubscription(Authentication authentication) {
-        UUID userId = getUserIdFromAuth(authentication);
+        UUID userId = authHelper.getUserIdFromAuth(authentication);
         Subscription subscription = subscriptionRepository.findByUserId(userId)
                 .orElse(null);
         return ResponseEntity.ok(ApiResponse.success(subscription));
@@ -45,7 +44,7 @@ public class SubscriptionController {
             @RequestBody Map<String, String> request,
             Authentication authentication) {
         try {
-            UUID userId = getUserIdFromAuth(authentication);
+            UUID userId = authHelper.getUserIdFromAuth(authentication);
             String planName = request.get("planName");
             String successUrl = request.get("successUrl");
             String cancelUrl = request.get("cancelUrl");
@@ -62,9 +61,9 @@ public class SubscriptionController {
 
     @PostMapping("/cancel")
     public ResponseEntity<ApiResponse<Void>> cancelSubscription(Authentication authentication) {
-        UUID userId = getUserIdFromAuth(authentication);
+        UUID userId = authHelper.getUserIdFromAuth(authentication);
         Subscription subscription = subscriptionRepository.findByUserId(userId)
-                .orElseThrow(() -> new RuntimeException("No active subscription found"));
+                .orElseThrow(() -> new ResourceNotFoundException("No active subscription found"));
 
         subscription.setCancelAtPeriodEnd(true);
         subscriptionRepository.save(subscription);
@@ -86,12 +85,5 @@ public class SubscriptionController {
             log.error("Stripe error: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Webhook error");
         }
-    }
-
-    private UUID getUserIdFromAuth(Authentication authentication) {
-        String email = authentication.getName();
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        return user.getId();
     }
 }

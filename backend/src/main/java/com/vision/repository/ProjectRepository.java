@@ -13,4 +13,5 @@ public interface ProjectRepository extends JpaRepository<Project, UUID> {
     List<Project> findByUserIdAndStatus(UUID userId, String status);
     List<Project> findByIsPublicTrue();
     long countByUserId(UUID userId);
+    long countByUserIdAndStatus(UUID userId, String status);
 }
