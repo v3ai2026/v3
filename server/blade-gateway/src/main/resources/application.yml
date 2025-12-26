@@ -1,0 +1,66 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: blade-gateway
+  cloud:
+    nacos:
+      discovery:
+        server-addr: localhost:8848
+        enabled: true
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+      routes:
+        - id: blade-auth
+          uri: lb://blade-auth
+          predicates:
+            - Path=/api/auth/**
+        - id: vision-user
+          uri: lb://vision-user
+          predicates:
+            - Path=/api/user/**
+        - id: vision-project
+          uri: lb://vision-project
+          predicates:
+            - Path=/api/project/**
+        - id: vision-deploy
+          uri: lb://vision-deploy
+          predicates:
+            - Path=/api/deploy/**
+        - id: vision-payment
+          uri: lb://vision-payment
+          predicates:
+            - Path=/api/payment/**
+        - id: vision-monitor
+          uri: lb://vision-monitor
+          predicates:
+            - Path=/api/monitor/**
+        - id: vision-proxy
+          uri: lb://vision-proxy
+          predicates:
+            - Path=/api/proxy/**
+        - id: vision-database
+          uri: lb://vision-database
+          predicates:
+            - Path=/api/database/**
+      globalcors:
+        corsConfigurations:
+          '[/**]':
+            allowedOrigins: "*"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+            allowedHeaders: "*"
+            allowCredentials: false
+
+logging:
+  level:
+    com.vision.paas: DEBUG
+    org.springframework.cloud.gateway: DEBUG

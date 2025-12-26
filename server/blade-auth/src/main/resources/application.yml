@@ -1,0 +1,28 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: blade-auth
+  datasource:
+    url: jdbc:postgresql://localhost:5432/vision_paas
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+  cloud:
+    nacos:
+      discovery:
+        server-addr: localhost:8848
+        enabled: true
+
+jwt:
+  secret: vision-paas-jwt-secret-key-change-in-production
+  expiration: 86400000
+
+logging:
+  level:
+    com.vision.paas: DEBUG

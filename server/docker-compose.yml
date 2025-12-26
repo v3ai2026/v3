@@ -1,0 +1,185 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: vision-postgres
+    environment:
+      POSTGRES_DB: vision_paas
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - vision-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: vision-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - vision-network
+
+  # Nacos Service Discovery
+  nacos:
+    image: nacos/nacos-server:v2.2.3
+    container_name: vision-nacos
+    environment:
+      MODE: standalone
+      SPRING_DATASOURCE_PLATFORM: mysql
+    ports:
+      - "8848:8848"
+      - "9848:9848"
+    networks:
+      - vision-network
+
+  # Blade Gateway
+  blade-gateway:
+    build: ./blade-gateway
+    container_name: blade-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/vision_paas
+      SPRING_CLOUD_NACOS_DISCOVERY_SERVER_ADDR: nacos:8848
+    depends_on:
+      - postgres
+      - redis
+      - nacos
+    networks:
+      - vision-network
+
+  # Blade Auth
+  blade-auth:
+    build: ./blade-auth
+    container_name: blade-auth
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/vision_paas
+      SPRING_CLOUD_NACOS_DISCOVERY_SERVER_ADDR: nacos:8848
+    depends_on:
+      - postgres
+      - nacos
+    networks:
+      - vision-network
+
+  # Vision User
+  vision-user:
+    build: ./vision-user
+    container_name: vision-user
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/vision_paas
+      SPRING_CLOUD_NACOS_DISCOVERY_SERVER_ADDR: nacos:8848
+    depends_on:
+      - postgres
+      - nacos
+    networks:
+      - vision-network
+
+  # Vision Deploy (Core Service)
+  vision-deploy:
+    build: ./vision-deploy
+    container_name: vision-deploy
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/vision_paas
+      SPRING_CLOUD_NACOS_DISCOVERY_SERVER_ADDR: nacos:8848
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - postgres
+      - nacos
+    networks:
+      - vision-network
+
+  # Vision Project
+  vision-project:
+    build: ./vision-project
+    container_name: vision-project
+    ports:
+      - "8084:8084"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/vision_paas
+      SPRING_CLOUD_NACOS_DISCOVERY_SERVER_ADDR: nacos:8848
+    depends_on:
+      - postgres
+      - nacos
+    networks:
+      - vision-network
+
+  # Vision Payment
+  vision-payment:
+    build: ./vision-payment
+    container_name: vision-payment
+    ports:
+      - "8085:8085"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/vision_paas
+      SPRING_CLOUD_NACOS_DISCOVERY_SERVER_ADDR: nacos:8848
+      STRIPE_API_KEY: ${STRIPE_API_KEY}
+    depends_on:
+      - postgres
+      - nacos
+    networks:
+      - vision-network
+
+  # Vision Monitor
+  vision-monitor:
+    build: ./vision-monitor
+    container_name: vision-monitor
+    ports:
+      - "8086:8086"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/vision_paas
+      SPRING_CLOUD_NACOS_DISCOVERY_SERVER_ADDR: nacos:8848
+    depends_on:
+      - postgres
+      - nacos
+    networks:
+      - vision-network
+
+  # Vision Proxy
+  vision-proxy:
+    build: ./vision-proxy
+    container_name: vision-proxy
+    ports:
+      - "8087:8087"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/vision_paas
+      SPRING_CLOUD_NACOS_DISCOVERY_SERVER_ADDR: nacos:8848
+    depends_on:
+      - postgres
+      - nacos
+    networks:
+      - vision-network
+
+  # Vision Database
+  vision-database:
+    build: ./vision-database
+    container_name: vision-database
+    ports:
+      - "8088:8088"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/vision_paas
+      SPRING_CLOUD_NACOS_DISCOVERY_SERVER_ADDR: nacos:8848
+    depends_on:
+      - postgres
+      - nacos
+    networks:
+      - vision-network
+
+volumes:
+  postgres_data:
+
+networks:
+  vision-network:
+    driver: bridge
