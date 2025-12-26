@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import Editor from '@monaco-editor/react';
+import { Analytics } from '@vercel/analytics/react';
 import { GoogleGenAI } from "@google/genai";
 import { generateFullStackProject, convertToColabNotebook, transcribeAudio, generateSpeech } from './services/geminiService';
 import { FigmaService } from './services/figmaService';
@@ -879,6 +880,7 @@ const App: React.FC = () => {
            <NeuralButton onClick={handleSaveAgent} className="w-full">{editingAgent ? "Update Protocol" : "Manifest Shard"}</NeuralButton>
         </div>
       </NeuralModal>
+      <Analytics />
     </div>
   );
 };
