@@ -8,6 +8,21 @@
 
 **AI Studio 链接**: https://ai.studio/apps/drive/1pKtDgh7WukKx9-Yh1Rmpy0ihKgvkExTf
 
+## ⚠️ 项目架构说明
+
+**这是一个纯前端 React 应用，没有后端服务器。**
+
+- **类型**: 单页应用 (SPA) - React 19 + TypeScript + Vite
+- **运行方式**: 在用户浏览器中运行
+- **数据存储**: 浏览器内存/LocalStorage（刷新后数据会丢失）
+- **功能实现**: 通过调用第三方 API
+  - Google Gemini API → AI 代码生成和对话
+  - Vercel API → 项目部署
+  - Google Ads, Facebook, TikTok 等 API → 广告投放
+  - Google Cloud Storage, Figma, GitHub 等 API → 云服务集成
+
+**所有 services/ 目录下的文件都是前端代码，用于调用第三方 API，不是后端服务。**
+
 ## ✨ 核心功能
 
 ### 🎨 AI 全栈开发系统
