@@ -483,6 +483,193 @@ const App: React.FC = () => {
             </div>
           )}
 
+          {/* DEPLOYMENT TAB */}
+          {activeTab === TabType.DEVOPS_DEPLOY && (
+            <div className="p-4 md:p-12 animate-modal-fade max-w-7xl mx-auto space-y-8 md:space-y-12">
+               <div className="text-center md:text-left space-y-4">
+                  <h2 className="text-4xl md:text-6xl font-black text-white tracking-tighter uppercase leading-none">Deployment Engine</h2>
+                  <p className="text-slate-500 font-black uppercase tracking-widest text-[10px]">Orchestrate production deployments on Vercel Edge Network</p>
+               </div>
+
+               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  <GlassCard className="space-y-6 lg:col-span-1 h-fit">
+                    <h3 className="text-xs font-black text-[#00DC82] uppercase tracking-[0.3em]">Vercel Authentication</h3>
+                    <NeuralInput 
+                      label="Vercel Token" 
+                      type="password" 
+                      value={vercelToken} 
+                      onChange={e => setVercelToken(e.target.value)} 
+                      placeholder="Your Vercel API Token" 
+                    />
+                    <div className="pt-2 space-y-2">
+                      <p className="text-[9px] text-slate-500 font-bold">Token Requirements:</p>
+                      <ul className="text-[8px] text-slate-600 space-y-1 list-disc list-inside">
+                        <li>Full deployment access</li>
+                        <li>Project management scope</li>
+                        <li>Environment variables access</li>
+                      </ul>
+                    </div>
+                  </GlassCard>
+
+                  <div className="lg:col-span-2 space-y-8">
+                    {!generationResult && (
+                      <GlassCard className="p-8 md:p-16 text-center space-y-6">
+                        <div className="w-20 h-20 md:w-32 md:h-32 rounded-full bg-[#00DC82]/10 mx-auto flex items-center justify-center">
+                          <span className="text-4xl md:text-6xl">🚀</span>
+                        </div>
+                        <div className="space-y-2">
+                          <h3 className="text-xl md:text-2xl font-black text-white">No Project Generated</h3>
+                          <p className="text-xs md:text-sm text-slate-500 max-w-md mx-auto">Generate a project first using the Build tab, then return here to deploy it to Vercel's Edge Network.</p>
+                        </div>
+                        <NeuralButton 
+                          onClick={() => setActiveTab(TabType.CREATION_BUILDER)} 
+                          variant="primary"
+                          className="mx-auto"
+                        >
+                          Go to Builder
+                        </NeuralButton>
+                      </GlassCard>
+                    )}
+
+                    {generationResult && (
+                      <div className="space-y-6">
+                        <GlassCard className="p-6 border-l-4 border-[#00DC82]">
+                          <div className="space-y-4">
+                            <div className="flex items-start justify-between">
+                              <div className="space-y-2">
+                                <h4 className="text-lg md:text-xl font-black text-white">{generationResult.projectName}</h4>
+                                <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Ready for deployment</p>
+                              </div>
+                              <NeuralBadge variant="secondary">{generationResult.files.length} Files</NeuralBadge>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-white/5">
+                              <div className="space-y-1">
+                                <p className="text-[8px] font-black uppercase text-slate-600 tracking-widest">Frontend</p>
+                                <p className="text-lg font-black text-[#00DC82]">
+                                  {generationResult.files.filter(f => f.type === 'frontend').length}
+                                </p>
+                              </div>
+                              <div className="space-y-1">
+                                <p className="text-[8px] font-black uppercase text-slate-600 tracking-widest">Backend</p>
+                                <p className="text-lg font-black text-[#00DC82]">
+                                  {generationResult.files.filter(f => f.type === 'backend').length}
+                                </p>
+                              </div>
+                              <div className="space-y-1">
+                                <p className="text-[8px] font-black uppercase text-slate-600 tracking-widest">Config</p>
+                                <p className="text-lg font-black text-[#00DC82]">
+                                  {generationResult.files.filter(f => f.type === 'config').length}
+                                </p>
+                              </div>
+                              <div className="space-y-1">
+                                <p className="text-[8px] font-black uppercase text-slate-600 tracking-widest">Tests</p>
+                                <p className="text-lg font-black text-[#00DC82]">
+                                  {generationResult.files.filter(f => f.type === 'test').length}
+                                </p>
+                              </div>
+                            </div>
+
+                            <NeuralButton 
+                              onClick={handleVercelDeploy} 
+                              loading={isDeploying}
+                              disabled={!vercelToken}
+                              className="w-full mt-4"
+                              variant="primary"
+                            >
+                              {isDeploying ? 'Deploying to Edge Network...' : 'Deploy to Vercel'}
+                            </NeuralButton>
+                          </div>
+                        </GlassCard>
+
+                        {deployStatus && (
+                          <GlassCard className="space-y-6 animate-modal-slide">
+                            <div className="flex items-center justify-between">
+                              <div className="space-y-1">
+                                <h4 className="text-lg font-black text-white">Deployment Status</h4>
+                                <p className="text-[8px] font-black uppercase text-slate-500 tracking-widest">Real-time monitoring</p>
+                              </div>
+                              <NeuralBadge 
+                                variant={
+                                  deployStatus.state === 'READY' ? 'primary' : 
+                                  deployStatus.state === 'ERROR' ? 'secondary' : 
+                                  'secondary'
+                                }
+                              >
+                                {deployStatus.state}
+                              </NeuralBadge>
+                            </div>
+
+                            <div className="space-y-4 border-t border-white/5 pt-4">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs text-slate-500 font-bold">Deployment ID</span>
+                                <span className="text-xs text-white font-mono">{deployStatus.id}</span>
+                              </div>
+                              
+                              {deployStatus.url && (
+                                <div className="space-y-2">
+                                  <span className="text-xs text-slate-500 font-bold">Live URL</span>
+                                  <a 
+                                    href={`https://${deployStatus.url}`} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="block p-4 bg-black/40 rounded-xl border border-[#00DC82]/20 hover:border-[#00DC82]/50 transition-all group"
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-sm text-[#00DC82] font-mono truncate group-hover:underline">
+                                        {deployStatus.url}
+                                      </span>
+                                      <span className="text-xl">🔗</span>
+                                    </div>
+                                  </a>
+                                </div>
+                              )}
+
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs text-slate-500 font-bold">Created At</span>
+                                <span className="text-xs text-white">
+                                  {new Date(deployStatus.createdAt).toLocaleString()}
+                                </span>
+                              </div>
+
+                              {deployStatus.state === 'READY' && (
+                                <div className="pt-4 border-t border-white/5">
+                                  <div className="flex items-center gap-2 text-[#00DC82] text-sm font-bold">
+                                    <span className="text-xl">✅</span>
+                                    <span>Deployment completed successfully!</span>
+                                  </div>
+                                </div>
+                              )}
+
+                              {deployStatus.state === 'ERROR' && (
+                                <div className="pt-4 border-t border-white/5">
+                                  <div className="flex items-center gap-2 text-red-400 text-sm font-bold">
+                                    <span className="text-xl">❌</span>
+                                    <span>Deployment failed. Check Vercel dashboard for details.</span>
+                                  </div>
+                                </div>
+                              )}
+
+                              {deployStatus.state !== 'READY' && deployStatus.state !== 'ERROR' && (
+                                <div className="pt-4">
+                                  <div className="mb-2 h-1 bg-black/40 rounded-full overflow-hidden">
+                                    <div className="h-full bg-gradient-to-r from-[#00DC82] to-[#00DC82]/50 animate-pulse" style={{ width: '100%' }}></div>
+                                  </div>
+                                  <p className="text-[9px] text-slate-600 text-center font-bold">
+                                    Building and deploying to Edge Network...
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          </GlassCard>
+                        )}
+                      </div>
+                    )}
+                  </div>
+               </div>
+            </div>
+          )}
+
           {/* AGENT MANAGER TAB */}
           {activeTab === TabType.AGENT_MANAGER && (
             <div className="p-4 md:p-12 animate-modal-fade max-w-7xl mx-auto space-y-8 md:space-y-12">
