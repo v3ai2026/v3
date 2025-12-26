@@ -1,41 +1,28 @@
 server:
-  port: 8100
+  port: 8081
 
 spring:
   application:
     name: blade-auth
-  
   datasource:
-    url: jdbc:postgresql://${SUPABASE_DB_HOST:localhost}:${SUPABASE_DB_PORT:5432}/${SUPABASE_DB_NAME:postgres}?currentSchema=public
-    username: ${SUPABASE_DB_USER:postgres}
-    password: ${SUPABASE_DB_PASSWORD:password}
+    url: jdbc:postgresql://localhost:5432/vision_paas
+    username: postgres
+    password: postgres
     driver-class-name: org.postgresql.Driver
-    hikari:
-      maximum-pool-size: 10
-      minimum-idle: 5
-      connection-timeout: 30000
-  
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
   cloud:
     nacos:
       discovery:
-        server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
-        namespace: public
+        server-addr: localhost:8848
+        enabled: true
 
 jwt:
-  secret: ${JWT_SECRET:your-super-secret-jwt-key-change-in-production}
-  expiration: ${JWT_EXPIRATION:604800000}
-
-mybatis-plus:
-  mapper-locations: classpath:mapper/**/*.xml
-  configuration:
-    map-underscore-to-camel-case: true
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
-  global-config:
-    db-config:
-      logic-delete-field: deleted
-      logic-delete-value: 1
-      logic-not-delete-value: 0
+  secret: vision-paas-jwt-secret-key-change-in-production
+  expiration: 86400000
 
 logging:
   level:
-    com.vision.auth: DEBUG
+    com.vision.paas: DEBUG
