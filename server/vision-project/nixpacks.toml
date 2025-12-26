@@ -1,0 +1,11 @@
+[phases.setup]
+nixPkgs = ["maven", "jdk17"]
+
+[phases.install]
+cmds = ["cd ../vision-common && mvn clean install -DskipTests"]
+
+[phases.build]
+cmds = ["mvn clean package -DskipTests"]
+
+[start]
+cmd = "java -Dserver.port=$PORT -jar target/*.jar"

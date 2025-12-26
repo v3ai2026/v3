@@ -1,0 +1,96 @@
+# Railway Deployment Template
+# This file can be used to deploy all services at once using Railway CLI or Railway's template feature
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: vision_paas
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # Frontend Service
+  frontend:
+    source: .
+    nixpacksPath: nixpacks.toml
+    environment:
+      NODE_ENV: production
+    domains:
+      - app.yourdomain.com
+    
+  # Backend Services
+  blade-gateway:
+    source: server/blade-gateway
+    nixpacksPath: nixpacks.toml
+    environment:
+      PORT: ${PORT}
+      DATABASE_URL: ${Postgres.DATABASE_URL}
+      DB_USERNAME: postgres
+      DB_PASSWORD: ${Postgres.POSTGRES_PASSWORD}
+    domains:
+      - gateway.yourdomain.com
+
+  blade-auth:
+    source: server/blade-auth
+    nixpacksPath: nixpacks.toml
+    environment:
+      PORT: ${PORT}
+      DATABASE_URL: ${Postgres.DATABASE_URL}
+      DB_USERNAME: postgres
+      DB_PASSWORD: ${Postgres.POSTGRES_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION: 86400000
+    domains:
+      - auth.yourdomain.com
+
+  vision-user:
+    source: server/vision-user
+    nixpacksPath: nixpacks.toml
+    environment:
+      PORT: ${PORT}
+      DATABASE_URL: ${Postgres.DATABASE_URL}
+      DB_USERNAME: postgres
+      DB_PASSWORD: ${Postgres.POSTGRES_PASSWORD}
+    domains:
+      - user.yourdomain.com
+
+  vision-deploy:
+    source: server/vision-deploy
+    nixpacksPath: nixpacks.toml
+    environment:
+      PORT: ${PORT}
+      DATABASE_URL: ${Postgres.DATABASE_URL}
+      DB_USERNAME: postgres
+      DB_PASSWORD: ${Postgres.POSTGRES_PASSWORD}
+    domains:
+      - deploy.yourdomain.com
+
+  vision-project:
+    source: server/vision-project
+    nixpacksPath: nixpacks.toml
+    environment:
+      PORT: ${PORT}
+      DATABASE_URL: ${Postgres.DATABASE_URL}
+      DB_USERNAME: postgres
+      DB_PASSWORD: ${Postgres.POSTGRES_PASSWORD}
+    domains:
+      - project.yourdomain.com
+
+  vision-payment:
+    source: server/vision-payment
+    nixpacksPath: nixpacks.toml
+    environment:
+      PORT: ${PORT}
+      DATABASE_URL: ${Postgres.DATABASE_URL}
+      DB_USERNAME: postgres
+      DB_PASSWORD: ${Postgres.POSTGRES_PASSWORD}
+      STRIPE_API_KEY: ${STRIPE_API_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+    domains:
+      - payment.yourdomain.com
+
+volumes:
+  postgres_data:

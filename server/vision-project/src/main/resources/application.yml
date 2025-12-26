@@ -1,13 +1,13 @@
 server:
-  port: 8084
+  port: ${PORT:8084}
 
 spring:
   application:
     name: vision-project
   datasource:
-    url: jdbc:postgresql://localhost:5432/vision_paas
-    username: postgres
-    password: postgres
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/vision_paas}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
   jpa:
     hibernate:
       ddl-auto: update

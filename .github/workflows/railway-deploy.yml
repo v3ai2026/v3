@@ -1,0 +1,73 @@
+name: Railway Auto Deploy
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - production
+  pull_request:
+    branches:
+      - main
+      - master
+      - production
+    types: [closed]
+
+jobs:
+  deploy-frontend:
+    name: Deploy Frontend to Railway
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy Frontend
+        run: railway up --service frontend
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+  deploy-backend:
+    name: Deploy Backend Services to Railway
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+    strategy:
+      matrix:
+        service:
+          - blade-gateway
+          - blade-auth
+          - vision-user
+          - vision-deploy
+          - vision-project
+          - vision-payment
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy ${{ matrix.service }}
+        run: |
+          cd server/${{ matrix.service }}
+          railway up --service ${{ matrix.service }}
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+  notify:
+    name: Deployment Notification
+    runs-on: ubuntu-latest
+    needs: [deploy-frontend, deploy-backend]
+    if: always()
+    steps:
+      - name: Notify deployment status
+        run: |
+          if [ "${{ needs.deploy-frontend.result }}" == "success" ] && [ "${{ needs.deploy-backend.result }}" == "success" ]; then
+            echo "✅ All services deployed successfully!"
+          else
+            echo "❌ Some services failed to deploy. Check the logs above."
+            exit 1
+          fi
