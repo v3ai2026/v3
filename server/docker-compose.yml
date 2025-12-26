@@ -1,0 +1,103 @@
+version: '3.8'
+
+services:
+  nacos:
+    image: nacos/nacos-server:v2.3.0
+    container_name: vision-nacos
+    ports:
+      - "8848:8848"
+      - "9848:9848"
+    environment:
+      - MODE=standalone
+      - PREFER_HOST_MODE=hostname
+    volumes:
+      - ./nacos/logs:/home/nacos/logs
+      - ./nacos/data:/home/nacos/data
+    networks:
+      - vision-network
+
+  gateway:
+    build:
+      context: ./blade-gateway
+      dockerfile: Dockerfile
+    container_name: vision-gateway
+    ports:
+      - "9999:9999"
+    environment:
+      - NACOS_SERVER_ADDR=nacos:8848
+    depends_on:
+      - nacos
+    networks:
+      - vision-network
+
+  auth:
+    build:
+      context: ./blade-auth
+      dockerfile: Dockerfile
+    container_name: vision-auth
+    ports:
+      - "8100:8100"
+    environment:
+      - NACOS_SERVER_ADDR=nacos:8848
+    env_file:
+      - .env
+    depends_on:
+      - nacos
+    networks:
+      - vision-network
+
+  user:
+    build:
+      context: ./vision-user
+      dockerfile: Dockerfile
+    container_name: vision-user
+    ports:
+      - "8101:8101"
+    environment:
+      - NACOS_SERVER_ADDR=nacos:8848
+    env_file:
+      - .env
+    depends_on:
+      - nacos
+    networks:
+      - vision-network
+
+  project:
+    build:
+      context: ./vision-project
+      dockerfile: Dockerfile
+    container_name: vision-project
+    ports:
+      - "8102:8102"
+    environment:
+      - NACOS_SERVER_ADDR=nacos:8848
+    env_file:
+      - .env
+    depends_on:
+      - nacos
+    networks:
+      - vision-network
+
+  payment:
+    build:
+      context: ./vision-payment
+      dockerfile: Dockerfile
+    container_name: vision-payment
+    ports:
+      - "8103:8103"
+    environment:
+      - NACOS_SERVER_ADDR=nacos:8848
+    env_file:
+      - .env
+    depends_on:
+      - nacos
+    networks:
+      - vision-network
+
+networks:
+  vision-network:
+    driver: bridge
+
+volumes:
+  nacos-logs:
+  nacos-data:

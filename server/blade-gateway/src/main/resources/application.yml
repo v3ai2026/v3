@@ -1,0 +1,72 @@
+server:
+  port: 9999
+
+spring:
+  application:
+    name: blade-gateway
+  
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
+        namespace: public
+    
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+      
+      routes:
+        # 认证服务
+        - id: blade-auth
+          uri: lb://blade-auth
+          predicates:
+            - Path=/blade-auth/**
+        
+        # 用户服务
+        - id: vision-user
+          uri: lb://vision-user
+          predicates:
+            - Path=/api/user/**
+          filters:
+            - StripPrefix=1
+        
+        # 项目服务
+        - id: vision-project
+          uri: lb://vision-project
+          predicates:
+            - Path=/api/projects/**,/api/teams/**,/api/api-keys/**
+          filters:
+            - StripPrefix=1
+        
+        # 支付服务
+        - id: vision-payment
+          uri: lb://vision-payment
+          predicates:
+            - Path=/api/payment/**
+          filters:
+            - StripPrefix=1
+      
+      # 全局 CORS 配置
+      globalcors:
+        corsConfigurations:
+          '[/**]':
+            allowedOrigins: 
+              - "http://localhost:5173"
+              - "${FRONTEND_URL:http://localhost:5173}"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+              - PATCH
+            allowedHeaders: "*"
+            allowCredentials: true
+            maxAge: 3600
+
+logging:
+  level:
+    org.springframework.cloud.gateway: DEBUG
+    reactor.netty.http.client: DEBUG
