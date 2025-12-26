@@ -10,33 +10,60 @@ buildNumber.properties
 .mvn/timing.properties
 .mvn/wrapper/maven-wrapper.jar
 
-# IDE
-.idea/
-*.iml
-*.iws
-*.ipr
-.vscode/
+# Eclipse
 .classpath
 .project
 .settings/
+bin/
+
+# IntelliJ IDEA
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+
+# NetBeans
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+# VS Code
+.vscode/
 
 # Logs
 *.log
 logs/
 
-# Environment
-.env
-*.env.local
-
 # OS
 .DS_Store
 Thumbs.db
-
-# Nacos data
-nacos/
 
 # Temporary files
 *.tmp
 *.bak
 *.swp
 *~
+
+# Application
+application-local.yml
+application-dev.yml
+.env
+.env.local
+
+# Build artifacts
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# Test coverage
+coverage/
+.coverage
+
+# Cloned repositories (for deployment)
+/tmp/

@@ -1,72 +1,66 @@
 server:
-  port: 9999
+  port: 8080
 
 spring:
   application:
     name: blade-gateway
-  
   cloud:
     nacos:
       discovery:
-        server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
-        namespace: public
-    
+        server-addr: localhost:8848
+        enabled: true
     gateway:
       discovery:
         locator:
           enabled: true
           lower-case-service-id: true
-      
       routes:
-        # 认证服务
         - id: blade-auth
           uri: lb://blade-auth
           predicates:
-            - Path=/blade-auth/**
-        
-        # 用户服务
+            - Path=/api/auth/**
         - id: vision-user
           uri: lb://vision-user
           predicates:
             - Path=/api/user/**
-          filters:
-            - StripPrefix=1
-        
-        # 项目服务
         - id: vision-project
           uri: lb://vision-project
           predicates:
-            - Path=/api/projects/**,/api/teams/**,/api/api-keys/**
-          filters:
-            - StripPrefix=1
-        
-        # 支付服务
+            - Path=/api/project/**
+        - id: vision-deploy
+          uri: lb://vision-deploy
+          predicates:
+            - Path=/api/deploy/**
         - id: vision-payment
           uri: lb://vision-payment
           predicates:
             - Path=/api/payment/**
-          filters:
-            - StripPrefix=1
-      
-      # 全局 CORS 配置
+        - id: vision-monitor
+          uri: lb://vision-monitor
+          predicates:
+            - Path=/api/monitor/**
+        - id: vision-proxy
+          uri: lb://vision-proxy
+          predicates:
+            - Path=/api/proxy/**
+        - id: vision-database
+          uri: lb://vision-database
+          predicates:
+            - Path=/api/database/**
       globalcors:
         corsConfigurations:
           '[/**]':
-            allowedOrigins: 
-              - "http://localhost:5173"
-              - "${FRONTEND_URL:http://localhost:5173}"
+            allowedOrigins: "*"
             allowedMethods:
               - GET
               - POST
               - PUT
               - DELETE
               - OPTIONS
-              - PATCH
             allowedHeaders: "*"
-            allowCredentials: true
-            maxAge: 3600
+            allowCredentials: false
 
 logging:
   level:
+    com.vision.paas: DEBUG
     org.springframework.cloud.gateway: DEBUG
-    reactor.netty.http.client: DEBUG

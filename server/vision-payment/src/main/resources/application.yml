@@ -1,43 +1,21 @@
 server:
-  port: 8103
+  port: 8085
 
 spring:
   application:
     name: vision-payment
-  
   datasource:
-    url: jdbc:postgresql://${SUPABASE_DB_HOST:localhost}:${SUPABASE_DB_PORT:5432}/${SUPABASE_DB_NAME:postgres}?currentSchema=public
-    username: ${SUPABASE_DB_USER:postgres}
-    password: ${SUPABASE_DB_PASSWORD:password}
-    driver-class-name: org.postgresql.Driver
-    hikari:
-      maximum-pool-size: 10
-      minimum-idle: 5
-  
+    url: jdbc:postgresql://localhost:5432/vision_paas
+    username: postgres
+    password: postgres
+  jpa:
+    hibernate:
+      ddl-auto: update
   cloud:
     nacos:
       discovery:
-        server-addr: ${NACOS_SERVER_ADDR:localhost:8848}
-        namespace: public
-
-jwt:
-  secret: ${JWT_SECRET:your-super-secret-jwt-key-change-in-production}
-  expiration: ${JWT_EXPIRATION:604800000}
+        server-addr: localhost:8848
 
 stripe:
-  api-key: ${STRIPE_SECRET_KEY:sk_test_your_key}
-  webhook-secret: ${STRIPE_WEBHOOK_SECRET:whsec_your_secret}
-  pro-price-id: ${STRIPE_PRO_PRICE_ID:price_xxx}
-  enterprise-price-id: ${STRIPE_ENTERPRISE_PRICE_ID:price_yyy}
-
-frontend:
-  url: ${FRONTEND_URL:http://localhost:5173}
-
-mybatis-plus:
-  configuration:
-    map-underscore-to-camel-case: true
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
-
-logging:
-  level:
-    com.vision.payment: DEBUG
+  api-key: sk_test_your_stripe_key_here
+  webhook-secret: whsec_your_webhook_secret

@@ -1,0 +1,17 @@
+server:
+  port: 8086
+
+spring:
+  application:
+    name: vision-monitor
+  datasource:
+    url: jdbc:postgresql://localhost:5432/vision_paas
+    username: postgres
+    password: postgres
+  jpa:
+    hibernate:
+      ddl-auto: update
+  cloud:
+    nacos:
+      discovery:
+        server-addr: localhost:8848
