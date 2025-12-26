@@ -3,17 +3,15 @@ package com.vision.payment.service.impl;
 import com.stripe.exception.StripeException;
 import com.stripe.model.Event;
 import com.stripe.model.checkout.Session;
-import com.stripe.model.billingportal.Session as PortalSession;
 import com.stripe.net.Webhook;
 import com.stripe.param.checkout.SessionCreateParams;
-import com.stripe.param.billingportal.SessionCreateParams as PortalSessionCreateParams;
 import com.vision.common.exception.BusinessException;
 import com.vision.payment.service.IStripeService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
-
 import org.springframework.beans.factory.annotation.Autowired;
+
 import java.util.Map;
 
 @Service
@@ -54,12 +52,14 @@ public class StripeServiceImpl implements IStripeService {
     @Override
     public String createPortalSession(String customerId) {
         try {
-            PortalSessionCreateParams params = PortalSessionCreateParams.builder()
+            com.stripe.param.billingportal.SessionCreateParams params = 
+                com.stripe.param.billingportal.SessionCreateParams.builder()
                 .setCustomer(customerId)
                 .setReturnUrl(frontendUrl + "/billing")
                 .build();
 
-            PortalSession session = PortalSession.create(params);
+            com.stripe.model.billingportal.Session session = 
+                com.stripe.model.billingportal.Session.create(params);
             return session.getUrl();
         } catch (StripeException e) {
             throw new BusinessException("创建客户门户会话失败: " + e.getMessage());
@@ -101,7 +101,6 @@ public class StripeServiceImpl implements IStripeService {
 
     @Override
     public boolean cancelSubscription(String userId) {
-        // 实现订阅取消逻辑
         String sql = "UPDATE profiles SET subscription_status = 'canceled' WHERE id = ?";
         return jdbcTemplate.update(sql, userId) > 0;
     }

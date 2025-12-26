@@ -47,11 +47,11 @@ public class UserController {
      * PUT /api/user/info
      */
     @PutMapping("/info")
-    public R<Void> updateUserInfo(@RequestHeader("Authorization") String authorization,
+    public R<String> updateUserInfo(@RequestHeader("Authorization") String authorization,
                                    @RequestBody User user) {
         String userId = getUserIdFromHeader(authorization);
         userService.updateUserInfo(userId, user);
-        return R.success("更新成功");
+        return R.success("更新成功", "更新成功");
     }
 
     /**
@@ -59,9 +59,9 @@ public class UserController {
      * DELETE /api/user/account
      */
     @DeleteMapping("/account")
-    public R<Void> deleteAccount(@RequestHeader("Authorization") String authorization) {
+    public R<String> deleteAccount(@RequestHeader("Authorization") String authorization) {
         String userId = getUserIdFromHeader(authorization);
         userService.deleteAccount(userId);
-        return R.success("账号已删除");
+        return R.success("账号已删除", "账号已删除");
     }
 }

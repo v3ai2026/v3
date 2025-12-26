@@ -71,6 +71,6 @@ public class AuthController {
     @PostMapping("/logout")
     public R<Void> logout() {
         // Token 是无状态的，登出由前端处理（删除 token）
-        return R.success("登出成功");
+        return R.success();
     }
 }

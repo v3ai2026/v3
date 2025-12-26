@@ -42,11 +42,11 @@ public class ApiKeyController {
     }
 
     @DeleteMapping("/{id}")
-    public R<Void> deleteApiKey(@RequestHeader("Authorization") String authorization,
+    public R<String> deleteApiKey(@RequestHeader("Authorization") String authorization,
                                  @PathVariable String id) {
         String userId = getUserIdFromHeader(authorization);
         apiKeyService.deleteApiKey(userId, id);
-        return R.success("API 密钥删除成功");
+        return R.success("API 密钥删除成功", "API 密钥删除成功");
     }
 
     @PutMapping("/{id}/regenerate")

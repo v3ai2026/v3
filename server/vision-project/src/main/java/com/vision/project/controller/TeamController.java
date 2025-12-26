@@ -50,34 +50,34 @@ public class TeamController {
     }
 
     @PostMapping("/{id}/members")
-    public R<Void> addMember(@RequestHeader("Authorization") String authorization,
+    public R<String> addMember(@RequestHeader("Authorization") String authorization,
                               @PathVariable String id,
                               @RequestBody Map<String, String> request) {
         String userId = getUserIdFromHeader(authorization);
         String memberId = request.get("userId");
         String role = request.getOrDefault("role", "member");
         teamService.addTeamMember(userId, id, memberId, role);
-        return R.success("成员添加成功");
+        return R.success("成员添加成功", "成员添加成功");
     }
 
     @DeleteMapping("/{id}/members/{userId}")
-    public R<Void> removeMember(@RequestHeader("Authorization") String authorization,
+    public R<String> removeMember(@RequestHeader("Authorization") String authorization,
                                  @PathVariable String id,
                                  @PathVariable String userId) {
         String currentUserId = getUserIdFromHeader(authorization);
         teamService.removeTeamMember(currentUserId, id, userId);
-        return R.success("成员移除成功");
+        return R.success("成员移除成功", "成员移除成功");
     }
 
     @PutMapping("/{id}/members/{userId}/role")
-    public R<Void> updateMemberRole(@RequestHeader("Authorization") String authorization,
+    public R<String> updateMemberRole(@RequestHeader("Authorization") String authorization,
                                       @PathVariable String id,
                                       @PathVariable String userId,
                                       @RequestBody Map<String, String> request) {
         String currentUserId = getUserIdFromHeader(authorization);
         String role = request.get("role");
         teamService.updateMemberRole(currentUserId, id, userId, role);
-        return R.success("角色更新成功");
+        return R.success("角色更新成功", "角色更新成功");
     }
 
     @GetMapping("/{id}/members")

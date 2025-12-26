@@ -52,19 +52,19 @@ public class ProjectController {
     }
 
     @PutMapping("/{id}")
-    public R<Void> updateProject(@RequestHeader("Authorization") String authorization,
+    public R<String> updateProject(@RequestHeader("Authorization") String authorization,
                                   @PathVariable String id,
                                   @RequestBody Project project) {
         String userId = getUserIdFromHeader(authorization);
         projectService.updateProject(userId, id, project);
-        return R.success("项目更新成功");
+        return R.success("项目更新成功", "项目更新成功");
     }
 
     @DeleteMapping("/{id}")
-    public R<Void> deleteProject(@RequestHeader("Authorization") String authorization,
+    public R<String> deleteProject(@RequestHeader("Authorization") String authorization,
                                   @PathVariable String id) {
         String userId = getUserIdFromHeader(authorization);
         projectService.deleteProject(userId, id);
-        return R.success("项目删除成功");
+        return R.success("项目删除成功", "项目删除成功");
     }
 }

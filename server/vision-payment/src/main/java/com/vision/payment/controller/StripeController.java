@@ -79,9 +79,9 @@ public class StripeController {
      * DELETE /api/payment/subscription
      */
     @DeleteMapping("/subscription")
-    public R<Void> cancelSubscription(@RequestHeader("Authorization") String authorization) {
+    public R<String> cancelSubscription(@RequestHeader("Authorization") String authorization) {
         String userId = getUserIdFromHeader(authorization);
         stripeService.cancelSubscription(userId);
-        return R.success("订阅已取消");
+        return R.success("订阅已取消", "订阅已取消");
     }
 }
