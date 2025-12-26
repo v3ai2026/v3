@@ -3,6 +3,7 @@ package com.vision.paas.deploy.docker;
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.BuildImageResultCallback;
 import com.github.dockerjava.api.command.CreateContainerResponse;
+import com.github.dockerjava.api.async.ResultCallback;
 import com.github.dockerjava.api.model.*;
 import com.github.dockerjava.core.DefaultDockerClientConfig;
 import com.github.dockerjava.core.DockerClientConfig;
@@ -14,8 +15,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import jakarta.annotation.PostConstruct;
+import java.io.Closeable;
 import java.io.File;
 import java.io.FileWriter;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
@@ -182,13 +186,28 @@ public class DockerService {
      */
     public String getContainerLogs(String containerId, int tail) {
         try {
-            return dockerClient.logContainerCmd(containerId)
+            StringBuilder logs = new StringBuilder();
+            dockerClient.logContainerCmd(containerId)
                     .withStdOut(true)
                     .withStdErr(true)
                     .withTail(tail)
-                    .exec(new LogContainerResultCallback())
-                    .awaitCompletion()
-                    .toString();
+                    .exec(new ResultCallback.Adapter<Frame>() {
+                        @Override
+                        public void onNext(Frame frame) {
+                            try {
+                                logs.append(new String(frame.getPayload(), StandardCharsets.UTF_8));
+                            } catch (Exception e) {
+                                log.warn("Failed to process log frame", e);
+                            }
+                        }
+
+                        @Override
+                        public void onError(Throwable throwable) {
+                            log.error("Error while streaming container logs", throwable);
+                        }
+                    })
+                    .awaitCompletion(10, TimeUnit.SECONDS);
+            return logs.toString();
         } catch (Exception e) {
             log.error("Failed to get container logs", e);
             return "Failed to retrieve logs";
