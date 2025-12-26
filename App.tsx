@@ -652,7 +652,9 @@ const App: React.FC = () => {
 
                               {deployStatus.state !== 'READY' && deployStatus.state !== 'ERROR' && (
                                 <div className="pt-4">
-                                  <ProgressBar value={33} className="mb-2" />
+                                  <div className="mb-2 h-1 bg-black/40 rounded-full overflow-hidden">
+                                    <div className="h-full bg-gradient-to-r from-[#00DC82] to-[#00DC82]/50 animate-pulse" style={{ width: '100%' }}></div>
+                                  </div>
                                   <p className="text-[9px] text-slate-600 text-center font-bold">
                                     Building and deploying to Edge Network...
                                   </p>
