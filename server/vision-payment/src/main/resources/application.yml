@@ -1,0 +1,21 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: vision-payment
+  datasource:
+    url: jdbc:postgresql://localhost:5432/vision_paas
+    username: postgres
+    password: postgres
+  jpa:
+    hibernate:
+      ddl-auto: update
+  cloud:
+    nacos:
+      discovery:
+        server-addr: localhost:8848
+
+stripe:
+  api-key: sk_test_your_stripe_key_here
+  webhook-secret: whsec_your_webhook_secret

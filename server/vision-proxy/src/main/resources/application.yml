@@ -1,0 +1,21 @@
+server:
+  port: 8087
+
+spring:
+  application:
+    name: vision-proxy
+  datasource:
+    url: jdbc:postgresql://localhost:5432/vision_paas
+    username: postgres
+    password: postgres
+  jpa:
+    hibernate:
+      ddl-auto: update
+  cloud:
+    nacos:
+      discovery:
+        server-addr: localhost:8848
+
+proxy:
+  base-domain: yourplatform.com
+  nginx-config-path: /etc/nginx/sites-enabled
