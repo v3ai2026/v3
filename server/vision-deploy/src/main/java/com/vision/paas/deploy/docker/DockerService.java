@@ -19,6 +19,7 @@ import java.io.Closeable;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
@@ -193,7 +194,16 @@ public class DockerService {
                     .exec(new ResultCallback.Adapter<Frame>() {
                         @Override
                         public void onNext(Frame frame) {
-                            logs.append(new String(frame.getPayload()));
+                            try {
+                                logs.append(new String(frame.getPayload(), StandardCharsets.UTF_8));
+                            } catch (Exception e) {
+                                log.warn("Failed to process log frame", e);
+                            }
+                        }
+
+                        @Override
+                        public void onError(Throwable throwable) {
+                            log.error("Error while streaming container logs", throwable);
                         }
                     })
                     .awaitCompletion(10, TimeUnit.SECONDS);
