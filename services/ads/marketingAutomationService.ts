@@ -13,7 +13,7 @@ export interface WorkflowAction {
   id: string;
   type: 'send_email' | 'send_sms' | 'send_push' | 'create_ad_campaign' | 'send_coupon' | 'wait';
   delay?: number; // in hours
-  params: Record<string, any>;
+  params?: Record<string, any>;
 }
 
 export interface MarketingWorkflow {

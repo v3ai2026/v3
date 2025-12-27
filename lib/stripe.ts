@@ -8,6 +8,7 @@ export const PRICING_PLANS = {
   free: {
     name: 'Free',
     price: 0,
+    priceId: '', // Free plan doesn't need a price ID
     interval: 'month',
     features: [
       '3 projects',

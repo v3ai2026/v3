@@ -195,3 +195,79 @@ export interface AdPlatformCredentials {
   accountId?: string;
   isConnected: boolean;
 }
+
+// User Profile Types
+export interface UserProfile {
+  id: string;
+  email: string;
+  displayName?: string;
+  avatarUrl?: string;
+  role?: 'user' | 'admin' | 'developer';
+  subscription?: {
+    tier: 'free' | 'pro' | 'enterprise';
+    status: 'active' | 'inactive' | 'cancelled';
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
+// AR/3D Types
+export interface FaceLandmark {
+  x: number;
+  y: number;
+  z?: number;
+  visibility?: number;
+}
+
+// Marketing Automation Types
+export interface WorkflowAction {
+  id: string;
+  type: 'send_email' | 'send_sms' | 'wait' | 'condition' | 'add_tag' | 'remove_tag';
+  params?: Record<string, any>;
+  delay?: number;
+}
+
+// 3D Commerce Types
+export interface Product3D {
+  id: string;
+  name: string;
+  modelUrl: string;
+  thumbnailUrl?: string;
+  price: number;
+  currency: string;
+  description?: string;
+  variants?: ProductVariant[];
+  category?: string;
+  tags?: string[];
+}
+
+export interface ProductVariant {
+  id: string;
+  name: string;
+  color?: string;
+  hexColor?: string;
+  size?: string;
+  texture?: string;
+  modelUrl?: string;
+  price?: number;
+  available: boolean;
+}
+
+export interface VirtualStore {
+  id: string;
+  name: string;
+  theme: string;
+  products: Product3D[];
+  layout: {
+    type: 'grid' | 'showcase' | 'custom';
+    spacing: number;
+    sections?: StoreSection[];
+  };
+}
+
+export interface StoreSection {
+  id: string;
+  name: string;
+  position: [number, number, number];
+  products: string[]; // product IDs
+}

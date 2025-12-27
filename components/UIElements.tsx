@@ -45,7 +45,8 @@ export const NeuralButton: React.FC<{
   loading?: boolean;
   disabled?: boolean;
   className?: string;
-}> = ({ children, onClick, variant = 'primary', size = 'md', loading = false, disabled = false, className = '' }) => {
+  type?: 'button' | 'submit' | 'reset';
+}> = ({ children, onClick, variant = 'primary', size = 'md', loading = false, disabled = false, className = '', type = 'button' }) => {
   const baseStyles = "inline-flex items-center justify-center font-black uppercase tracking-widest transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95";
   
   const variants = {
@@ -66,6 +67,7 @@ export const NeuralButton: React.FC<{
 
   return (
     <button 
+      type={type}
       onClick={onClick} 
       disabled={disabled || loading} 
       className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${className}`}
@@ -86,7 +88,9 @@ export const NeuralInput: React.FC<{
   placeholder?: string;
   type?: string;
   className?: string;
-}> = ({ label, value, onChange, placeholder, type = 'text', className = '' }) => (
+  required?: boolean;
+  disabled?: boolean;
+}> = ({ label, value, onChange, placeholder, type = 'text', className = '', required = false, disabled = false }) => (
   <div className="space-y-2 w-full">
     {label && <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-2">{label}</label>}
     <input
@@ -94,10 +98,12 @@ export const NeuralInput: React.FC<{
       value={value}
       onChange={onChange}
       placeholder={placeholder}
+      required={required}
+      disabled={disabled}
       className={`
         w-full bg-black/40 border border-[#1a1e43] rounded-2xl px-5 py-4
         text-sm text-white placeholder-slate-600 focus:outline-none focus:border-[#00DC82]/50
-        transition-all ${className}
+        transition-all disabled:opacity-50 disabled:cursor-not-allowed ${className}
       `}
     />
   </div>
