@@ -22,12 +22,31 @@ export default defineConfig(({ mode }) => {
       build: {
         rollupOptions: {
           output: {
-            manualChunks: {
-              'react-vendor': ['react', 'react-dom'],
-              'three-vendor': ['three', '@react-three/fiber', '@react-three/drei'],
-              'editor': ['@monaco-editor/react'],
-              'ui-vendor': ['@radix-ui/react-dialog', '@radix-ui/react-tabs', 'framer-motion'],
-              'ads': ['./services/ads/unifiedAdsService', './services/ads/aiCopywritingService'],
+            manualChunks: (id) => {
+              // React and React DOM
+              if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
+                return 'react-vendor';
+              }
+              // Three.js ecosystem
+              if (id.includes('node_modules/three') || 
+                  id.includes('node_modules/@react-three')) {
+                return 'three-vendor';
+              }
+              // Monaco Editor
+              if (id.includes('node_modules/@monaco-editor') || 
+                  id.includes('node_modules/monaco-editor')) {
+                return 'editor';
+              }
+              // Radix UI and Framer Motion
+              if (id.includes('node_modules/@radix-ui') || 
+                  id.includes('node_modules/framer-motion')) {
+                return 'ui-vendor';
+              }
+              // Ads system (local modules)
+              if (id.includes('/services/ads/')) {
+                return 'ads';
+              }
+              // Default: undefined means it goes to the main chunk
             }
           }
         },
