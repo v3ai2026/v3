@@ -18,6 +18,20 @@ export default defineConfig(({ mode }) => {
         alias: {
           '@': path.resolve(__dirname, '.'),
         }
+      },
+      build: {
+        rollupOptions: {
+          output: {
+            manualChunks: {
+              'react-vendor': ['react', 'react-dom'],
+              'three-vendor': ['three', '@react-three/fiber', '@react-three/drei'],
+              'editor': ['@monaco-editor/react'],
+              'ui-vendor': ['@radix-ui/react-dialog', '@radix-ui/react-tabs', 'framer-motion'],
+              'ads': ['./services/ads/unifiedAdsService', './services/ads/aiCopywritingService'],
+            }
+          }
+        },
+        chunkSizeWarningLimit: 600,
       }
     };
 });

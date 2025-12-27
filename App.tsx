@@ -1,5 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
-import Editor from '@monaco-editor/react';
+import React, { useState, useMemo, useEffect, useRef, lazy, Suspense } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { generateFullStackProject, convertToColabNotebook, transcribeAudio, generateSpeech } from './services/geminiService';
 import { FigmaService } from './services/figmaService';
@@ -18,10 +17,13 @@ import {
   ProgressBar
 } from './components/UIElements';
 import { GeneratedFile, TabType, ModelConfig, GenerationResult, AIAgent, DeploymentStatus } from './types';
-import { AdsDashboard } from './components/ads/AdsDashboard';
-import { AIAdCreator } from './components/ads/AIAdCreator';
 import { UnifiedAdsService } from './services/ads/unifiedAdsService';
 import { AICopywritingService } from './services/ads/aiCopywritingService';
+
+// Lazy load heavy components for better performance
+const Editor = lazy(() => import('@monaco-editor/react'));
+const AdsDashboard = lazy(() => import('./components/ads/AdsDashboard').then(m => ({ default: m.AdsDashboard })));
+const AIAdCreator = lazy(() => import('./components/ads/AIAdCreator').then(m => ({ default: m.AIAdCreator })));
 
 const INITIAL_SYSTEM = `你是一个顶级进化级全栈 AI 编排系统（DeepMind 级架构师）。正在操作分布式代理集群。风格：奢华深色，Nuxt 翠绿。优先移动端适配。`;
 
@@ -388,14 +390,18 @@ const App: React.FC = () => {
           {activeTab === TabType.MEDIA_ADS && (
             <div className="h-full">
               {adsView === 'dashboard' ? (
-                <AdsDashboard adsService={adsService} />
+                <Suspense fallback={<div className="flex items-center justify-center h-full"><NeuralSpinner /></div>}>
+                  <AdsDashboard adsService={adsService} />
+                </Suspense>
               ) : (
                 <div className="p-4 md:p-12">
-                  <AIAdCreator 
-                    adsService={adsService} 
-                    copywritingService={copywritingService}
-                    onCampaignCreated={() => setAdsView('dashboard')}
-                  />
+                  <Suspense fallback={<div className="flex items-center justify-center h-full"><NeuralSpinner /></div>}>
+                    <AIAdCreator 
+                      adsService={adsService} 
+                      copywritingService={copywritingService}
+                      onCampaignCreated={() => setAdsView('dashboard')}
+                    />
+                  </Suspense>
                 </div>
               )}
             </div>
@@ -673,23 +679,25 @@ const App: React.FC = () => {
               </div>
               <div className="flex-1 relative overflow-hidden">
                 {selectedFile ? (
-                  <Editor 
-                    height="100%" 
-                    theme="vs-dark" 
-                    path={selectedFile.path} 
-                    defaultLanguage="typescript" 
-                    value={selectedFile.content} 
-                    options={{ 
-                      minimap: { enabled: false }, 
-                      fontSize: isMobile ? 12 : 16, 
-                      lineHeight: isMobile ? 20 : 28, 
-                      fontFamily: 'JetBrains Mono',
-                      padding: { top: isMobile ? 10 : 40 },
-                      scrollBeyondLastLine: false,
-                      readOnly: false,
-                      wordWrap: 'on'
-                    }} 
-                  />
+                  <Suspense fallback={<div className="flex items-center justify-center h-full"><NeuralSpinner /></div>}>
+                    <Editor 
+                      height="100%" 
+                      theme="vs-dark" 
+                      path={selectedFile.path} 
+                      defaultLanguage="typescript" 
+                      value={selectedFile.content} 
+                      options={{ 
+                        minimap: { enabled: false }, 
+                        fontSize: isMobile ? 12 : 16, 
+                        lineHeight: isMobile ? 20 : 28, 
+                        fontFamily: 'JetBrains Mono',
+                        padding: { top: isMobile ? 10 : 40 },
+                        scrollBeyondLastLine: false,
+                        readOnly: false,
+                        wordWrap: 'on'
+                      }} 
+                    />
+                  </Suspense>
                 ) : null}
                 {isMobile && (
                   <div className="absolute bottom-4 right-4 flex flex-col gap-2">
