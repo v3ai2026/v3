@@ -1,7 +1,7 @@
-# VisionCommerce - Integration Summary
+# NovaUI - Integration Summary
 
 ## Overview
-This document summarizes the complete integration of features from 5 draft pull requests (#4-#8) into the main branch, creating a unified VisionCommerce platform.
+This document summarizes the complete integration of features from 5 draft pull requests (#4-#8) into the main branch, creating a unified NovaUI platform.
 
 ---
 
