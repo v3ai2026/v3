@@ -1,6 +1,6 @@
 # This workflow is disabled to avoid conflicts with deploy-vercel.yml
 # The deploy-vercel.yml workflow uses Vercel CLI which is the recommended approach
-# To re-enable this workflow, remove the "false &&" condition below
+# To re-enable this workflow, change "if: false" to "if: true" or remove the condition
 
 name: Deploy to Vercel (Disabled)
 
