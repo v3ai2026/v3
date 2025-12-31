@@ -25,21 +25,31 @@ Nginx web server configuration for the production deployment:
 - API proxy configuration (optional, for backend integration)
 
 ### cloudbuild.yaml
-Google Cloud Build configuration that fixes the image naming issue:
-- Uses fixed image name **`novaui`** instead of `vision-` (which violates Docker naming conventions)
+Google Cloud Build configuration with fixes applied:
+- Region: **`europe-west1`** (matches Cloud Run trigger)
+- Image name: **`novaui`** (valid Docker name)
+- Automatic deployment: **enabled** with resource limits
 - Builds and tags images with both commit SHA and "latest" tag
 - Pushes images to Google Artifact Registry
-- Optional Cloud Run deployment step (commented out)
+- Deploys to Cloud Run with 512Mi memory, 1 CPU
 - Optimized build settings (8 CPU machine, 30-minute timeout)
 
 ## Issue Fixed
 
 The original deployment was failing with this error:
 ```
-invalid argument "us-west1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/vision-/...:$COMMIT_SHA" for "-t, --tag" flag: invalid reference format
+invalid argument "europe-west1-docker.pkg.dev/gen-lang-client-0654563230/cloud-run-source-deploy/vision-/ockerfile:af56ff29d8aaa4ba3e8babb5180c09c68799bab4" for "-t, --tag" flag: invalid reference format
 ```
 
-This was caused by the repository name `vision-` ending with a dash, which violates Docker image naming conventions. The solution uses a fixed image name `novaui` (from package.json) instead.
+This was caused by:
+1. The repository name `vision-` ending with a dash, which violates Docker image naming conventions
+2. Region mismatch between trigger (europe-west1) and cloudbuild.yaml (us-west1)
+3. Invalid service name in trigger configuration
+
+The solution:
+- Uses fixed image name `novaui` (from package.json)
+- All regions set to `europe-west1`
+- Automatic deployment enabled with proper resource limits
 
 ## Deployment
 
@@ -57,15 +67,20 @@ gcloud builds submit --config cloudbuild.yaml
 ### Deploy to Cloud Run (manual)
 ```bash
 gcloud run deploy novaui \
-  --image us-west1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/novaui:latest \
-  --region us-west1 \
+  --image europe-west1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/novaui:latest \
+  --region europe-west1 \
   --platform managed \
   --port 8080 \
-  --allow-unauthenticated
+  --allow-unauthenticated \
+  --memory 512Mi \
+  --cpu 1
 ```
 
 ### Automatic Deployment
-To enable automatic deployment to Cloud Run on every build, uncomment the "Step 4" in `cloudbuild.yaml`.
+Automatic deployment to Cloud Run is enabled in `cloudbuild.yaml`. Every push to main branch will:
+1. Build the Docker image
+2. Push to Artifact Registry
+3. Deploy to Cloud Run in europe-west1
 
 ## Requirements
 
