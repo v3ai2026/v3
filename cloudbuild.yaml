@@ -1,0 +1,67 @@
+# Google Cloud Build configuration for NovaUI deployment
+# This configuration fixes the Docker image naming issue by using 'novaui' instead of 'vision-'
+
+steps:
+  # Step 1: Build the Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'us-west1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/novaui:$COMMIT_SHA'
+      - '-t'
+      - 'us-west1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/novaui:latest'
+      - '-f'
+      - 'Dockerfile'
+      - '.'
+    id: 'build-image'
+    
+  # Step 2: Push the Docker image with commit SHA tag
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'us-west1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/novaui:$COMMIT_SHA'
+    id: 'push-image-sha'
+    waitFor: ['build-image']
+    
+  # Step 3: Push the Docker image with latest tag
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'us-west1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/novaui:latest'
+    id: 'push-image-latest'
+    waitFor: ['build-image']
+
+  # Step 4: Deploy to Cloud Run (optional, uncomment to enable automatic deployment)
+  # - name: 'gcr.io/cloud-builders/gcloud'
+  #   args:
+  #     - 'run'
+  #     - 'deploy'
+  #     - 'novaui'
+  #     - '--image'
+  #     - 'us-west1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/novaui:$COMMIT_SHA'
+  #     - '--region'
+  #     - 'us-west1'
+  #     - '--platform'
+  #     - 'managed'
+  #     - '--port'
+  #     - '8080'
+  #     - '--allow-unauthenticated'
+  #   id: 'deploy-cloud-run'
+  #   waitFor: ['push-image-sha']
+
+# Images to be pushed to Artifact Registry
+images:
+  - 'us-west1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/novaui:$COMMIT_SHA'
+  - 'us-west1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/novaui:latest'
+
+# Build configuration options
+options:
+  # Use a machine with more resources for faster builds
+  machineType: 'N1_HIGHCPU_8'
+  # Increase timeout for npm install
+  timeout: '1200s'
+  # Log streaming
+  logging: CLOUD_LOGGING_ONLY
+
+# Timeout for the entire build
+timeout: '1800s'
