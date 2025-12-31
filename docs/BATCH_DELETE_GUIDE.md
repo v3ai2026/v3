@@ -66,6 +66,12 @@ KEEP_REPOS=(
 )
 ```
 
+**Optional: Set GitHub Username via Environment Variable**
+```bash
+# Instead of editing the script, set GITHUB_USER environment variable
+export GITHUB_USER="your-username"
+```
+
 ### Step 2: Run the Script
 
 #### Windows PowerShell

@@ -10,7 +10,8 @@
 #############################################################################
 
 # Configuration - Edit these to specify which repositories to keep
-GITHUB_USER="v3ai2026"
+# Set GITHUB_USER via environment variable or edit below
+GITHUB_USER="${GITHUB_USER:-v3ai2026}"
 KEEP_REPOS=(
     "vision-"        # Main project - always keep
     # Add 4 more repositories you want to keep below:

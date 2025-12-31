@@ -11,7 +11,8 @@
 #>
 
 # Configuration - Edit these to specify which repositories to keep
-$GITHUB_USER = "v3ai2026"
+# Set GITHUB_USER via environment variable or edit below
+$GITHUB_USER = if ($env:GITHUB_USER) { $env:GITHUB_USER } else { "v3ai2026" }
 $KEEP_REPOS = @(
     "vision-"        # Main project - always keep
     # Add 4 more repositories you want to keep below:
@@ -140,11 +141,10 @@ Write-Host ("=" * 70) -ForegroundColor Cyan
 
 $successCount = 0
 $failCount = 0
-$skippedCount = 0
 
 foreach ($repo in $reposToDelete) {
     $repoFullName = "$GITHUB_USER/$($repo.name)"
-    Write-Host "`n[$($successCount + $failCount + $skippedCount + 1)/$($reposToDelete.Count)] Deleting: $repoFullName" -ForegroundColor Yellow
+    Write-Host "`n[$($successCount + $failCount + 1)/$($reposToDelete.Count)] Deleting: $repoFullName" -ForegroundColor Yellow
     
     try {
         # Attempt deletion
@@ -177,9 +177,6 @@ Write-Host ("=" * 70) -ForegroundColor Cyan
 Write-Success "`n✅ Successfully deleted: $successCount repositories"
 if ($failCount -gt 0) {
     Write-Error "❌ Failed to delete: $failCount repositories"
-}
-if ($skippedCount -gt 0) {
-    Write-Warning "⏭️  Skipped: $skippedCount repositories"
 }
 
 Write-Host "`n" + ("=" * 70) -ForegroundColor Cyan
