@@ -335,6 +335,33 @@ VITE_STRIPE_ENTERPRISE_PRICE_ID=
 
 ---
 
+## 🗑️ Repository Management
+
+### Batch Delete Repositories
+
+For managing large numbers of repositories, see:
+- 📖 [Batch Delete Guide](./docs/BATCH_DELETE_GUIDE.md)
+- 🪟 Windows Script: `scripts/delete-repos.ps1`
+- 🍎 Mac/Linux Script: `scripts/delete-repos.sh`
+
+**Quick Start:**
+```bash
+# Windows PowerShell
+.\scripts\delete-repos.ps1
+
+# Mac/Linux
+chmod +x scripts/delete-repos.sh
+./scripts/delete-repos.sh
+```
+
+**Features:**
+- ✅ Safe deletion with double confirmation
+- ✅ Keep specified repositories (vision- + 4 others)
+- ✅ Detailed progress tracking
+- ✅ Error handling and recovery
+
+---
+
 ## 🤝 Contributing
 
 We welcome contributions! Please:
