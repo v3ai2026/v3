@@ -64,26 +64,35 @@ export const ARCamera: React.FC<ARCameraProps> = ({
   useEffect(() => {
     startCamera();
     return () => stopCamera();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [facingMode]); // Restart camera when facing mode changes
 
   useEffect(() => {
     if (!videoRef.current || !onFrame) return;
 
     const video = videoRef.current;
     let animationId: number;
+    let isCleanedUp = false;
 
     const processFrame = () => {
+      if (isCleanedUp) return;
       if (video.readyState === video.HAVE_ENOUGH_DATA) {
         onFrame(video);
       }
       animationId = requestAnimationFrame(processFrame);
     };
 
-    video.addEventListener('loadeddata', () => {
-      processFrame();
-    });
+    const handleLoadedData = () => {
+      if (!isCleanedUp) {
+        processFrame();
+      }
+    };
+
+    video.addEventListener('loadeddata', handleLoadedData);
 
     return () => {
+      isCleanedUp = true;
+      video.removeEventListener('loadeddata', handleLoadedData);
       if (animationId) {
         cancelAnimationFrame(animationId);
       }

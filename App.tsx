@@ -104,14 +104,29 @@ const App: React.FC = () => {
   const [adsView, setAdsView] = useState<'dashboard' | 'create'>('dashboard');
   const [adsInitialized, setAdsInitialized] = useState(false);
 
+  // Cleanup polling interval on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    };
+  }, []);
+
   // Initialize ads system with mock data on first load
   useEffect(() => {
     if (!adsInitialized && activeTab === TabType.MEDIA_ADS) {
-      adsService.seedMockData().then(() => {
-        setAdsInitialized(true);
-      });
+      adsService.seedMockData()
+        .then(() => {
+          setAdsInitialized(true);
+        })
+        .catch((error) => {
+          console.error('Failed to initialize ads system:', error);
+          setAdsInitialized(true); // Set to true anyway to prevent infinite retries
+        });
     }
-  }, [activeTab, adsInitialized]);
+  }, [activeTab, adsInitialized, adsService]);
 
   const startRecording = async () => {
     try {
@@ -168,17 +183,31 @@ const App: React.FC = () => {
     handleGenerate(prompt);
   }, [architectType, architectFeatures, input, handleGenerate]);
 
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
   const handleVercelDeploy = useCallback(async () => {
     if (!vercelToken || !generationResult) return;
+    
+    // Clear any existing polling interval
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+    
     setIsDeploying(true);
     try {
       const status = await deployToVercel(generationResult.files, vercelToken, generationResult.projectName);
       setDeployStatus(status);
       if (status.state === 'INITIALIZING') {
-        const poll = setInterval(async () => {
+        pollingIntervalRef.current = setInterval(async () => {
           const updated = await checkDeploymentStatus(status.id, vercelToken);
           setDeployStatus(updated);
-          if (updated.state === 'READY' || updated.state === 'ERROR') clearInterval(poll);
+          if (updated.state === 'READY' || updated.state === 'ERROR') {
+            if (pollingIntervalRef.current) {
+              clearInterval(pollingIntervalRef.current);
+              pollingIntervalRef.current = null;
+            }
+          }
         }, 5000);
       }
     } catch (e: any) { alert(e.message); } finally { setIsDeploying(false); }

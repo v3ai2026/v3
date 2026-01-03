@@ -32,7 +32,7 @@ export const AdsDashboard: React.FC<AdsDashboardProps> = ({ adsService }) => {
 
   useEffect(() => {
     loadDashboardData();
-  }, [selectedPlatform]);
+  }, [selectedPlatform, adsService]);
 
   const loadDashboardData = async () => {
     setIsLoading(true);
