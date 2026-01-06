@@ -4,6 +4,29 @@ Thank you for your interest in contributing to VisionCommerce! This document pro
 
 ## 🌟 How to Contribute
 
+### Development Setup
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/v3ai2026/vision-.git
+   cd vision-
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Start development server**
+   ```bash
+   npm run dev
+   ```
+
+4. **Create a feature branch**
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
+
 ### Reporting Bugs
 
 Before creating bug reports, please check existing issues to avoid duplicates. When creating a bug report, include:
@@ -33,15 +56,18 @@ Enhancement suggestions are tracked as GitHub issues. When creating an enhanceme
    ```
 3. **Make your changes** following our coding standards
 4. **Test your changes** thoroughly
-5. **Commit** with clear, descriptive messages:
+5. **Run quality checks** before committing:
    ```bash
-   git commit -m "Add: feature description"
+   npm run lint        # Check code style
+   npm run format      # Format code
+   npm run build       # Verify build
    ```
-6. **Push** to your fork:
+6. **Commit** with clear, descriptive messages (see Commit Messages section)
+7. **Push** to your fork:
    ```bash
    git push origin feature/your-feature-name
    ```
-7. **Open a Pull Request** with a clear description
+8. **Open a Pull Request** with a clear description
 
 ## 📝 Coding Standards
 
@@ -82,21 +108,34 @@ export const ProductViewer: React.FC<ProductViewerProps> = ({
 
 Follow the [Conventional Commits](https://www.conventionalcommits.org/) specification:
 
+Format:
+```
+<type>(<scope>): <subject>
+
+<body>
+
+<footer>
+```
+
+**Types:**
 - `feat:` New feature
 - `fix:` Bug fix
 - `docs:` Documentation changes
 - `style:` Code style changes (formatting)
 - `refactor:` Code refactoring
+- `perf:` Performance optimization
 - `test:` Adding or updating tests
 - `chore:` Maintenance tasks
 
 Example:
 ```
-feat: add AR glasses try-on feature
+feat(ar): add AR glasses try-on feature
 
 - Implement MediaPipe face tracking
 - Add glasses overlay rendering
 - Support multiple product variants
+
+Closes #123
 ```
 
 ## 🧪 Testing
@@ -136,6 +175,17 @@ All submissions require review before merging:
 2. **At least one approval** from a maintainer
 3. **All conversations resolved**
 4. **Up to date** with main branch
+
+Please read [CODE_REVIEW.md](CODE_REVIEW.md) for detailed code review standards and [CODE_REVIEW_CHECKLIST.md](CODE_REVIEW_CHECKLIST.md) for the review checklist.
+
+### Pre-Commit Checks
+
+The project uses Git hooks to ensure code quality. Before each commit:
+- ESLint checks for code issues
+- Prettier formats your code
+- Type checking validates TypeScript
+
+These checks run automatically via Husky and lint-staged.
 
 ## 📦 Project Structure
 

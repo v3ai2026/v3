@@ -1,0 +1,15 @@
+node_modules
+dist
+build
+.next
+.nuxt
+.output
+.git
+.vite
+coverage
+*.log
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+.env
+.env.local

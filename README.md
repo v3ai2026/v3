@@ -327,11 +327,83 @@ VITE_STRIPE_ENTERPRISE_PRICE_ID=
 
 ## 📚 Documentation
 
-- [Installation Guide](./SETUP.md)
-- [Deployment Checklist](./DEPLOYMENT_CHECKLIST.md)
-- [Backend Setup](./BACKEND_SETUP.md)
-- [API Documentation](#)
-- [Contributing Guide](./CONTRIBUTING.md)
+### Quick Links
+- **[Complete Documentation Index](./docs/README.md)** - All documentation in one place
+- **[Installation Guide](./SETUP.md)** - Detailed setup instructions
+- **[Deployment Checklist](./DEPLOYMENT_CHECKLIST.md)** - Pre-deployment verification
+- **[Contributing Guide](./CONTRIBUTING.md)** - Development workflow and guidelines
+- **[Code Review Guide](./CODE_REVIEW.md)** - Code review standards and best practices
+- **[Merge Complete](./MERGE_COMPLETE.md)** - Nova repository merge documentation
+
+### Technical Documentation
+- **[API Specification](./docs/API_SPEC.md)** - Complete REST API docs (21 endpoints)
+- **[Data Flow](./docs/DATA_FLOW.md)** - Data flow diagrams and state management
+- **[Routes Complete](./docs/ROUTES_COMPLETE.md)** - All page routes and composables
+- **[Database Setup](./DATABASE.md)** - Database configuration and setup
+- **[Database Migration](./docs/DATABASE_MIGRATION.md)** - Database consolidation strategy
+- **[Components Library](./COMPONENTS.md)** - Component documentation and usage
+
+### Feature Documentation
+- **[3D Model Guide](./docs/3D_MODEL_GUIDE.md)** - 3D integration and optimization
+- **[AR & 3D Store](./docs/AR_3D_STORE.md)** - AR features implementation
+- **[Ads System](./ADS_SYSTEM_README.md)** - Marketing automation platform
+- **[Automation Guide](./docs/AUTOMATION.md)** - CI/CD and automation workflows
+- **[Brand Guidelines](./docs/BRAND_GUIDELINES.md)** - Design system and visual identity
+
+### Backend Documentation
+- **[Backend Setup](./BACKEND_SETUP.md)** - Microservices architecture setup
+- **[Backend Quickstart](./BACKEND_QUICKSTART.md)** - Quick backend setup guide
+- **[Backend Separation](./BACKEND_SEPARATION_GUIDE.md)** - Microservices guide
+
+---
+
+## 🧪 Code Quality
+
+This project uses automated tools to ensure code quality and consistency:
+
+### Available Commands
+
+```bash
+# Linting
+npm run lint           # Check code for issues
+npm run lint:fix       # Auto-fix linting issues
+
+# Formatting
+npm run format         # Format all code with Prettier
+npm run format:check   # Check formatting without changes
+
+# Development
+npm run dev            # Start dev server with hot reload
+npm run build          # Build for production
+npm run preview        # Preview production build
+```
+
+### Automated Quality Checks
+
+- **ESLint** - JavaScript/TypeScript linting with React rules
+- **Prettier** - Consistent code formatting
+- **TypeScript** - Type checking and inference
+- **Husky** - Git hooks for pre-commit checks
+- **lint-staged** - Run linters on staged files only
+
+### Pre-Commit Hook
+
+Every commit automatically runs:
+1. ESLint on staged `.js`, `.ts`, `.tsx` files
+2. Prettier formatting on all staged files
+3. Type checking via TypeScript
+
+This ensures all committed code meets quality standards.
+
+### Code Review
+
+All pull requests require:
+- ✅ Passing lint checks
+- ✅ Passing build
+- ✅ Code review approval
+- ✅ All conversations resolved
+
+See [CODE_REVIEW.md](./CODE_REVIEW.md) and [CODE_REVIEW_CHECKLIST.md](./CODE_REVIEW_CHECKLIST.md) for detailed guidelines.
 
 ---
 
